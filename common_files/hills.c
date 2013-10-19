@@ -73,7 +73,7 @@ void PREFIX hills_push(struct mtd_data_s *mtd_data,real ww, real* ss,real* delta
   int icv,ncv;
   static FILE *file=NULL;
   real inv_ss0[nconst_max];
-  int done,wall;
+  int wall;
   static int first=1;
   int nactive;
 // INVERSION VARS
@@ -375,8 +375,17 @@ real PREFIX hills_engine(real* ss0,real* force){
 */
 
   int dp2index;
-  real dp2, dp[nconst_max], VhillsLast, diff;
+  real dp2, dp[nconst_max], VhillsLast;
   real Vbias;
+  // JFD>
+  // Temporaries for calculating McGovern-de Pablo boundary-consistent
+  // hills and forces.
+  real mcgdp_VHillDenom;
+  real lbound_exp_argument, ubound_exp_argument;
+  real lbound_gaussian, ubound_gaussian;
+  real mcdgp_force_correction;
+  int erf_index, lbound_exp_index, ubound_exp_index;
+  // <JFD
 
   int nh,ncv;
   int ih,icv;
@@ -421,16 +430,62 @@ real PREFIX hills_engine(real* ss0,real* force){
     if(logical.do_grid && ih>=grid.nhills && ih < hills.read) grid_addhills(&grid,hills.ww[ih],hills.ss0_t[ih],colvar.delta_s[ih],rank,npe);
     if(!logical.do_grid || logical.debug_grid || ih >= hills.read) {
      
-      dp2=hills_engine_dp(ih,ss0,dp);
-      if(dp2<DP2CUTOFF){
-        dp2index =  dp2*GTAB/DP2CUTOFF;
-        VhillsLast = hills.ww[ih]*hills.exp[dp2index];
+      dp2 = hills_engine_dp(ih, ss0, dp);
+      if(dp2 < DP2CUTOFF){
+        dp2index =  dp2 * GTAB / DP2CUTOFF;
+        VhillsLast = hills.ww[ih] * hills.exp[dp2index];
+        // JFD>
+        // The McGovern-de Pablo boundary consistent hills require dividing
+        // the usual hill Gaussian by an error function term representing
+        // the integral of that Gaussian over the allowed interval.
+        if (logical.mcgdp_hills) {
+          mcgdp_VHillDenom = 1.0;
+          for (icv=0; icv<ncv; icv++) if(colvar.on[icv]) {
+            erf_index = (ss0[icv] - hills.hill_lower_bounds[icv])/(hills.hill_upper_bounds[icv]-hills.hill_lower_bounds[icv]) * GTAB;
+            mcgdp_VHillDenom *= hills.erf[erf_index][icv];
+          }
+          VhillsLast /= mcgdp_VHillDenom;
+        }
+        // <JFD
         Vbias += VhillsLast;
         if(force) for(icv=0;icv<ncv;icv++) if(colvar.on[icv]) {
           if(logical.interval[icv]) {
-            if((ss0[icv]> cvint.lower_limit[icv] && ss0[icv]<cvint.upper_limit[icv])) force[icv] += dp[icv]/colvar.delta_s[ih][icv]*VhillsLast;  // -dU/dCV
+            if((ss0[icv]> cvint.lower_limit[icv] && ss0[icv]<cvint.upper_limit[icv])) {
+              force[icv] += dp[icv] / colvar.delta_s[ih][icv] * VhillsLast;  // -dU/dCV
+            }
+          // JFD>
+          // Applying the product rule to McGovern-de Pablo hill, taking
+          // derivatives of the numerator and denominator into separate
+          // terms, results in one normal-looking but rescaled Gaussian 
+          // force and one more complex boundary correction term.
+          } else if (logical.mcgdp_hills) {
+            // Compute how large the hill is where it hits the lower bound
+            lbound_exp_argument = (ss0[icv] - hills.hill_lower_bounds[icv]) * (ss0[icv] - hills.hill_lower_bounds[icv])/(2 * colvar.delta_s[ih][icv] * colvar.delta_s[ih][icv]);
+            if (lbound_exp_argument < DP2CUTOFF) {
+              lbound_exp_index = lbound_exp_argument * GTAB / DP2CUTOFF;
+              lbound_gaussian = hills.exp[lbound_exp_index];
+            } else {
+              lbound_gaussian = 0;
+            }
+            // Compute how large the hill is where it hits the upper bound
+            ubound_exp_argument = (hills.hill_upper_bounds[icv] - ss0[icv]) * (hills.hill_upper_bounds[icv] - ss0[icv])/(2 * colvar.delta_s[ih][icv] * colvar.delta_s[ih][icv]);
+            if (ubound_exp_argument < DP2CUTOFF) {
+              ubound_exp_index = ubound_exp_argument * GTAB / DP2CUTOFF;
+              ubound_gaussian = hills.exp[ubound_exp_index];
+            } else {
+              ubound_gaussian = 0;
+            }
+            // Compute the term corresponding to taking the derivative of the
+            // hill function's denominator
+            if (lbound_gaussian > 0 || ubound_gaussian > 0) {
+              mcdgp_force_correction = M_sqrt2oPI * (lbound_gaussian - ubound_gaussian) * VhillsLast / hills.erf[erf_index][icv] * colvar.delta_s[ih][icv];
+            } else {
+              mcdgp_force_correction = 0;
+            }
+            force[icv] += dp[icv] / colvar.delta_s[ih][icv] * VhillsLast + mcdgp_force_correction;
+          // <JFD
           } else {
-            force[icv] += dp[icv]/colvar.delta_s[ih][icv]*VhillsLast;  // -dU/dCV
+            force[icv] += dp[icv] / colvar.delta_s[ih][icv] * VhillsLast;  // -dU/dCV
           }
         }
       }
@@ -594,7 +649,7 @@ void PREFIX read_hills(struct  mtd_data_s *mtd_data, int restart, int first_read
 //------------------------------------------------------------------------------------------
 
 void PREFIX hills_reallocate( struct mtd_data_s *mtd_data) { 
-      int i,j,k;
+      int i,j;
       long int oldtot;
       real  *ww_tmp;
       real  **ss0_t_tmp;
@@ -739,147 +794,193 @@ void PREFIX grid_create_one2multi(int **one2multi, int size, int ncv, int *bin)
 void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,int rank,int npe)
 {
 
- int   i, j, ncv, flag; 
- real *xx, *dp, dp2, expo; 
- int  *index_nd, index_1d, dp2index;
- int *index_1d_para;
- real *pot_for_para;
+  int   i, j, ncv, flag;
+  real *xx, *dp, dp2, expo;
+  int  *index_nd, index_1d, dp2index;
+  int *index_1d_para;
+  real *pot_for_para;
 
- // Temporaries for the Dicksonian tempering rule
- real bias_at_hill_center;
- real bias_at_grid_point;
- real *force_at_hill_center;
- real *force_at_grid_point;
- real dicksonian_biasing_factor;
- real inv_tempering_temp = 1.0 / (mtd_data.boltz*(colvar.wfactor-1.0)*colvar.simtemp);
+  // JFD>
+  // Temporaries for the Dicksonian tempering rule
+  real bias_at_hill_center;
+  real bias_at_grid_point;
+  real *force_at_hill_center;
+  real *force_at_grid_point;
+  real dicksonian_biasing_factor;
+  real inv_tempering_temp = 1.0 / (mtd_data.boltz*(colvar.wfactor-1.0)*colvar.simtemp);
+  // Temporaries for calculating McGovern-de Pablo boundary-consistent
+  // hills and forces.
+  real mcgdp_VHillDenom;
+  real lbound_exp_argument, ubound_exp_argument;
+  real lbound_gaussian, ubound_gaussian;
+  real mcdgp_force_correction;
+  int erf_index, lbound_exp_index, ubound_exp_index;
+  // <JFD
 
- ncv  = grid->ncv;
+  ncv  = grid->ncv;
 
-// allocate temp array
- xx       = float_1d_array_alloc(ncv);
- dp       = float_1d_array_alloc(ncv);
- index_nd = int_1d_array_alloc(ncv); 
- force_at_hill_center = float_1d_array_alloc(ncv);
- force_at_grid_point = float_1d_array_alloc(ncv);
+  // allocate temp array
+  xx = float_1d_array_alloc(ncv);
+  dp = float_1d_array_alloc(ncv);
+  index_nd = int_1d_array_alloc(ncv); 
+  force_at_hill_center = float_1d_array_alloc(ncv);
+  force_at_grid_point = float_1d_array_alloc(ncv);
 
 // preliminary checks
 // 1) if the HILLS center is inside the grid
 // 2) if the GRID bin size is too large
 // 3) if delta is changed from previous call
- flag = 0.;
- for(j=0;j<ncv;j++) {
-  if((ss[grid->index[j]]<grid->min[j] || ss[grid->index[j]]>=grid->max[j]) && !grid->period[j])
-   plumed_error("HILLS outside GRID. Please increase GRID size."); 
-  if(grid->dx[j]>delta[grid->index[j]]/2.0) plumed_error("GRID bin size is too large compared to HILLS sigma."); 
-  if(fabs((grid->oldelta[j]-delta[grid->index[j]])/delta[grid->index[j]])>0.05) flag=1; 
- }
-// recalculate the dimension of the reduced grid if delta is changed
- if(flag==1) {
-  grid_resize_minigrid(grid,delta,DP2CUTOFF);
-  for(j=0;j<ncv;j++) grid->oldelta[j] = delta[grid->index[j]];
- }
-
-// temporary array for parallel computation
- index_1d_para=int_1d_array_alloc(grid->minisize);
- pot_for_para=float_1d_array_alloc(grid->minisize*(1+ncv));
- for(i=0;i<grid->minisize;i++) index_1d_para[i]=0;
- for(i=0;i<grid->minisize*(1+ncv);i++) pot_for_para[i]=0.0;
-
-// add HILL to the points belonging to the reduced GRID
-
-// JFD>  
- if(logical.dicksonian_tempering) {
-  bias_at_hill_center = grid_getstuff(grid, ss, force_at_hill_center);
- }
-// <JFD
-
- for(i=rank;i<grid->minisize;i+=npe) {
-
-  index_1d_para[i]=-1; // it means "no force on this point"
-
-  flag=0;
-  for(j=0;j<ncv;j++) {
-   xx[j] = ss[grid->index[j]] - grid->minilbox[j] + grid->dx[j] * grid->one2multi[i][j];  
-   if(grid->period[j]) xx[j] -= grid->lbox[j] * rint(xx[j]/grid->lbox[j]);
-   if((xx[j]<grid->min[j] || xx[j]>=grid->max[j]) && !grid->period[j])  flag=1;
-   index_nd[j] = floor((xx[j]-grid->min[j])/grid->dx[j]);
+  flag = 0.;
+  for(j = 0; j < ncv; j++) {
+    if((ss[grid->index[j]] < grid->min[j] || ss[grid->index[j]] >= grid->max[j]) && !grid->period[j])
+      plumed_error("HILLS outside GRID. Please increase GRID size."); 
+    if(grid->dx[j] > delta[grid->index[j]] / 2.0) plumed_error("GRID bin size is too large compared to HILLS sigma."); 
+    if(fabs((grid->oldelta[j] - delta[grid->index[j]]) / delta[grid->index[j]]) > 0.05) flag = 1; 
   }
-  if(flag==1) continue; // out of grid 
-
-// from multidimensional index to mono
-  index_1d=grid_multi2one(grid,index_nd);
-
-// add the gaussian on the GRID
-  dp2 = 0.;
-
-  for(j=0;j<ncv;j++) {
-   xx[j] = grid->min[j] + grid->dx[j] * index_nd[j];
-   dp[j] = xx[j] - ss[grid->index[j]];
-   if(grid->period[j]) dp[j] -= grid->lbox[j] * rint(dp[j]/grid->lbox[j]); 
-   dp[j] /= delta[grid->index[j]];
-   dp2 += dp[j]*dp[j]; 
+  // recalculate the dimension of the reduced grid if delta is changed
+  if(flag == 1) {
+    grid_resize_minigrid(grid, delta, DP2CUTOFF);
+    for(j = 0; j < ncv; j++) grid->oldelta[j] = delta[grid->index[j]];
   }
-  dp2 *= 0.5;
 
-  if(dp2<grid->cutoff){                  // always??    
-   dp2index =  dp2*GTAB/DP2CUTOFF;
-   expo     = ww*hills.exp[dp2index];
+  // temporary array for parallel computation
+  index_1d_para = int_1d_array_alloc(grid->minisize);
+  pot_for_para = float_1d_array_alloc(grid->minisize * (1 + ncv));
+  for(i = 0; i < grid->minisize; i++) index_1d_para[i] = 0;
+  for(i = 0; i < grid->minisize * (1 + ncv); i++) pot_for_para[i] = 0.0;
 
-   // JFD>
-   // Dicksonian tempering is tempering using the bias at each point to be biased rather than
-   // the hill center. That can be done within this function by computing the ratio of the
-   // usual well-tempering (which has already been applied) to the Dicksonian well-tempering
-   // and then applying that ratio to the hill value that is calculated normally.
-   if(logical.dicksonian_tempering) {
-    bias_at_grid_point = grid_getstuff(grid, xx, force_at_grid_point);
-    dicksonian_biasing_factor = exp(-inv_tempering_temp * (bias_at_grid_point - bias_at_hill_center));
-    expo *= dicksonian_biasing_factor;
-   }
-   // <JFD
+  // add HILL to the points belonging to the reduced GRID
 
-   // Add grid bias potential value
-   pot_for_para[i * (ncv + 1)] = expo;
-   
-   // Add grid bias force vector
-   for(j=0;j<ncv;j++) pot_for_para[i * (ncv + 1) + 1 + j] = dp[j] / delta[grid->index[j]] * expo;
-   
-   // JFD>
-   // Because Dicksonian tempering is location-sensitive, the forces to add depend on the current
-   // bias force at the point.
-   if(logical.dicksonian_tempering) {
-    for(j=0;j<ncv;j++) {
-      pot_for_para[i * (ncv + 1) + 1 + j] += inv_tempering_temp * force_at_grid_point[j] * expo;
+  // JFD>  
+  if(logical.dicksonian_tempering) {
+    bias_at_hill_center = grid_getstuff(grid, ss, force_at_hill_center);
+  }
+  // <JFD
+
+  for(i = rank; i < grid->minisize; i += npe) {
+
+    index_1d_para[i] = -1; // it means "no force on this point"
+
+    flag = 0;
+    for(j = 0; j < ncv; j++) {
+      xx[j] = ss[grid->index[j]] - grid->minilbox[j] + grid->dx[j] * grid->one2multi[i][j];  
+      if(grid->period[j]) xx[j] -= grid->lbox[j] * rint(xx[j] / grid->lbox[j]);
+      if((xx[j] < grid->min[j] || xx[j] >= grid->max[j]) && !grid->period[j])  flag = 1;
+      index_nd[j] = floor((xx[j] - grid->min[j]) / grid->dx[j]);
     }
-   }
-   // <JFD
+    if(flag == 1) continue; // out of grid 
 
-   index_1d_para[i]=index_1d;
-//   grid->pot[index_1d] += expo;
-//   for(j=0;j<ncv;j++) grid->force[index_1d][j] += dp[j]/delta[grid->index[j]]*expo;
+    // from multidimensional index to mono
+    index_1d = grid_multi2one(grid, index_nd);
+
+    // add the gaussian on the GRID
+    dp2 = 0.;
+    for(j = 0; j < ncv; j++) {
+      xx[j] = grid->min[j] + grid->dx[j] * index_nd[j];
+      dp[j] = xx[j] - ss[grid->index[j]];
+      if(grid->period[j]) dp[j] -= grid->lbox[j] * rint(dp[j]/grid->lbox[j]); 
+      dp[j] /= delta[grid->index[j]];
+      dp2 += dp[j] * dp[j]; 
+    }
+    dp2 *= 0.5;
+
+    if(dp2 < grid->cutoff){    
+      dp2index =  dp2 * GTAB / DP2CUTOFF;
+      expo     = ww * hills.exp[dp2index];
+      // JFD>
+      // Dicksonian tempering is tempering using the bias at each point to be biased rather than
+      // the hill center. That can be done within this function by computing the ratio of the
+      // usual well-tempering (which has already been applied) to the Dicksonian well-tempering
+      // and then applying that ratio to the hill value that is calculated normally.
+      if(logical.dicksonian_tempering) {
+        bias_at_grid_point = grid_getstuff(grid, xx, force_at_grid_point);
+        dicksonian_biasing_factor = exp(-inv_tempering_temp * (bias_at_grid_point - bias_at_hill_center));
+        expo *= dicksonian_biasing_factor;
+      }
+      // The McGovern-de Pablo boundary consistent hill requires dividing
+      // the usual hill Gaussian by an error function term representing
+      // the integral of that Gaussian over the allowed interval.
+      if (logical.mcgdp_hills) {
+        mcgdp_VHillDenom = 1.0;
+        for (j = 0; j < ncv; j++) if(colvar.on[j]) {
+          erf_index = (xx[j] - hills.hill_lower_bounds[j])/(hills.hill_upper_bounds[j]-hills.hill_lower_bounds[j]) * GTAB;
+          mcgdp_VHillDenom *= hills.erf[erf_index][j];
+        }
+        expo /= mcgdp_VHillDenom;
+      }
+      // <JFD
+      
+      // Add grid bias potential value
+      pot_for_para[i * (ncv + 1)] = expo;
+      // Add grid bias force vector
+      for(j = 0; j < ncv; j++) pot_for_para[i * (ncv + 1) + 1 + j] = dp[j] / delta[grid->index[j]] * expo;
+      
+      // JFD>
+      // Because Dicksonian tempering is location-sensitive, the forces to add depend on the current
+      // bias force at the point.
+      if(logical.dicksonian_tempering) {
+        for(j = 0; j < ncv; j++) {
+          pot_for_para[i * (ncv + 1) + 1 + j] += inv_tempering_temp * force_at_grid_point[j] * expo;
+        }
+      }
+      // Applying the product rule to McGovern-de Pablo hill, taking
+      // derivatives of the numerator and denominator into separate
+      // terms, results in one normal-looking but rescaled Gaussian 
+      // force and one more complex boundary correction term. The 
+      // numerator term has already been added to the force at this point,
+      // so this only calculates the denominator term.
+      if (logical.mcgdp_hills) {
+        for(j = 0; j < ncv; j++) {
+          // Compute how large the hill is where it hits the lower bound
+          lbound_exp_argument = (xx[j] - hills.hill_lower_bounds[j]) * (xx[j] - hills.hill_lower_bounds[j])/(2 * delta[grid->index[j]] * delta[grid->index[j]]);
+          if (lbound_exp_argument < DP2CUTOFF) {
+             lbound_exp_index = lbound_exp_argument * GTAB / DP2CUTOFF;
+                lbound_gaussian = hills.exp[lbound_exp_index];
+          } else {
+            lbound_gaussian = 0;
+          }
+          // Compute how large the hill is where it hits the upper bound
+          ubound_exp_argument = (hills.hill_upper_bounds[j] - xx[j]) * (hills.hill_upper_bounds[j] - xx[j])/(2 * delta[grid->index[j]] * delta[grid->index[j]]);
+          if (ubound_exp_argument < DP2CUTOFF) {
+            ubound_exp_index = ubound_exp_argument * GTAB / DP2CUTOFF;
+            ubound_gaussian = hills.exp[ubound_exp_index];
+          } else {
+            ubound_gaussian = 0;
+          }
+          // Compute the term corresponding to taking the derivative of the
+          // hill function's denominator
+          if (lbound_gaussian > 0 || ubound_gaussian > 0) {
+            mcdgp_force_correction = M_sqrt2oPI * (lbound_gaussian - ubound_gaussian) * expo / hills.erf[erf_index][j] * delta[grid->index[j]];
+          } else {
+            mcdgp_force_correction = 0;
+          }
+          pot_for_para[i * (ncv + 1) + 1 + j] += mcdgp_force_correction;
+        }
+      }
+      // <JFD
+      index_1d_para[i]=index_1d;
+    }
   }
- 
- }
 
- if(npe>1){ 
-   plumed_sum (&mtd_data,grid->minisize*(ncv+1),pot_for_para);
-   plumed_sumi(&mtd_data,grid->minisize,index_1d_para);
- }
+  if(npe>1){ 
+    plumed_sum (&mtd_data,grid->minisize*(ncv+1),pot_for_para);
+    plumed_sumi(&mtd_data,grid->minisize,index_1d_para);
+  }
 
- for(i=0;i<grid->minisize;i++) {
-   if(index_1d_para[i]<0) continue;
-   grid->pot[index_1d_para[i]]+=pot_for_para[i*(ncv+1)];
-   for(j=0;j<ncv;j++) grid->force[index_1d_para[i]][j] += pot_for_para[i*(ncv+1)+1+j];
- }
+  for(i=0;i<grid->minisize;i++) {
+    if(index_1d_para[i]<0) continue;
+    grid->pot[index_1d_para[i]]+=pot_for_para[i*(ncv+1)];
+    for(j=0;j<ncv;j++) grid->force[index_1d_para[i]][j] += pot_for_para[i*(ncv+1)+1+j];
+  }
 
-// deallocation
- free_1dr_array_alloc(dp);
- free_1dr_array_alloc(xx);
- free_1di_array_alloc(index_nd);
-
- free_1dr_array_alloc(pot_for_para);
- free_1di_array_alloc(index_1d_para);
-
+  // deallocation
+  free_1dr_array_alloc(dp);
+  free_1dr_array_alloc(xx);
+  free_1di_array_alloc(index_nd);
+  free_1dr_array_alloc(pot_for_para);
+  free_1di_array_alloc(index_1d_para);
 }
+
 //-------------------------------------------------------------------------------------------
 // from multidimensional index to mono dimensional
 int PREFIX grid_multi2one(struct grid_s *grid, int* index_nd)

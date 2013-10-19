@@ -156,15 +156,23 @@ typedef double rvec[3];
 
 
 // common global structures and definitions
-#define nconst_max 200					// fixed maximum number of COLVARS
+// JFD>
+// Changed by recommendation of Michael McGovern.
+#define nconst_max 25					// fixed maximum number of COLVARS
+// <JFD
 #define DP2CUTOFF 6.25					// sigma^2 considered for gaussian
 #define GTAB 1000000					// mesh for exponential tablature
 #ifndef M_PI
 #define M_PI 3.14159265
 #endif
 #ifndef M_2PI
-#define M_2PI 6.2831853 
+#define M_2PI 6.2831853
 #endif
+// JFD>
+// Added to implement the McGovern-de Pablo boundary consistent hills
+#define M_sqrt2oPI 0.79788456     // sqrt(2/pi)
+#define M_sqrt2 1.41421356        // sqrt(2)
+// <JFD
 // path dimensions
 #define MAXATOMS_PATH 900
 #define NMAX_PATH 10 
@@ -359,8 +367,9 @@ struct logical_s
   int    welltemp;
   // JFD>
   int    dicksonian_tempering;      // Use a well-tempered metadynamics such that Dickson's approximation is exact.
-  int    transition_tempering;
+  int    transition_tempering;      // Use transition-tempering
   int    ttdebug;
+  int    mcgdp_hills;          // Use the McGovern-de Pablo boundary consistent hills.
   // <JFD
   int    lreflect[nconst_max];
   int    ureflect[nconst_max];
@@ -516,6 +525,14 @@ struct hills_s
   int      nwalkers;
   int      idwalker;
   real   Vhills;					// Hills potential
+  // JFD>
+  // Extra information for depositing McGovern-de Pablo hills
+  real hill_upper_bounds[nconst_max];
+  real hill_lower_bounds[nconst_max];
+  real n_hills_near_lower_bound;
+  real n_hills_near_upper_bound;
+  real erf[GTAB + 1][nconst_max];
+  // <JFD
 };
 
 struct wall

@@ -1279,7 +1279,19 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
     for(j=0;j<GTAB;j++) {
       k = (real) DP2CUTOFF/GTAB*j;
       hills.exp[j] = exp(-k);
-    }  
+    }
+
+    // JFD>
+    if (logical.mcgdp_hills) {
+      long int cv_index
+      for(cv_index = 0; cv_index < colvar.nconst; cv_index++) {
+        for(j = 0; j <= GTAB; j++) {
+          k = (real) (hills.Up_Bound[cv_index] - hills.Low_Bound[cv_index]) / (GTAB * M_sqrt2 * colvar.delta_r[cv_index]) * j;
+          hills.erf[j][cv_index] = erf(k) + erf((hills.Up_Bound[cv_index] - hills.Low_Bound[cv_index]) / (M_sqrt2 * colvar.delta_r[cv_index]) - k);
+        }
+      }
+    }
+    // <JFD 
   }else{
   // evtl move the old colvar file
       if (firstTime==1 && !logical.append && !logical.restart_abmd){

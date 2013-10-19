@@ -38,6 +38,11 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 {
   double uno, due, tre, quattro;
   int i, j, icv, count, iw, nw, ix, iline, tmpc;
+  // JFD>
+  // This count is used to ensure that McGovern-de Pablo 
+  // hills have necessary information for all the CVs.
+  int mcgdp_count;
+  // <JFD
   FILE *file;
   char metafile[120], **word, tmpmeta[120];
 
@@ -99,6 +104,9 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 // CV counter initialization and calling routine to set the default values for many variables
   count = 0;
   iline = 0;
+  // JFD>
+  mcgdp_count = 0;
+  // <JFD
   read_defaults();
 
 // Initialize everything for reconnaissance metadynamics
@@ -781,7 +789,39 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
         plumed_error("WITH LWALL YOU ALWAYS HAVE TO SPECIFY THE \"KAPPA\" KEYWORD\n");
       fprintf(mtd_data->fplog, "|-WALL ON COLVAR %i: LOWER LIMIT = %f, KAPPA = %f, EXPONENT = %i, REDUX = %f, OFFSET = %f \n\n",
              icv, cvw.lower[icv-1], cvw.lsigma[icv-1]/mtd_data->eunit, cvw.lexp[icv-1], cvw.leps[icv-1], cvw.loff[icv-1]);
-     } else if(!strcmp(word[0],"INTERVAL")){
+    // JFD> 
+    // Read in parameters for the McGovern and De Pablo boundary consistent hills.
+    } else if(!strcmp(word[0],"MCGDP_HILLS")){
+      int read_lower_bound=0;
+      int read_upper_bound=0;
+      logical.mcgdp_hills=1;
+// first we select the proper CV
+      iw = seek_word(word,"CV");
+      if(iw>=0){ sscanf(word[iw+1], "%i", &icv);}
+      else{plumed_error("WITH MCGDP_HILLS YOU ALWAYS HAVE TO SPECIFY THE \"CV\" KEYWORD\n");}
+      mcgdp_count++;
+// then we parse the line
+      logical.upper[icv-1]=1;
+      logical.do_walls = 1;   // ### For modified output format
+      for(iw=1;iw<nw;iw++){
+        if(!strcmp(word[iw],"CV")) {
+          iw++;  // already read
+        } else if(!strcmp(word[iw],"UPPER_BOUND")) {
+          iw++; sscanf(word[iw], "%lf", &uno); hills.hill_upper_bounds[icv-1]=(real)uno; read_upper_bound=1;
+        } else if(!strcmp(word[iw],"LOWER_BOUND")) {
+          iw++; sscanf(word[iw], "%lf", &uno); hills.hill_lower_bounds[icv-1]=(real)uno; read_lower_bound=1;
+        } else {
+          plumed_error("Unknown flag for keyword MCGDP_HILLS");
+        };
+      }
+      if(!read_lower_bound)
+        plumed_error("WITH MCGDP_HILLS YOU ALWAYS HAVE TO SPECIFY THE \"LOWER_BOUND\" KEYWORD\n");
+      if(!read_upper_bound)
+        plumed_error("WITH MCGDP_HILLS YOU ALWAYS HAVE TO SPECIFY THE \"UPPER_BOUND\" KEYWORD\n");
+      fprintf(mtd_data->fplog, "|-MCGDP_HILLS CONDITION %i: UPPER BOUND = %f, LOWER BOUND = %f \n\n",
+             icv, hills.hill_upper_bounds[icv-1], hills.hill_lower_bounds[icv-1]); 
+    // <JFD
+    } else if(!strcmp(word[0],"INTERVAL")){
       int read_lower_limit=0;
       int read_upper_limit=0;
 // first we select the proper CV
@@ -1342,6 +1382,9 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
   if(logical.transition_tempering && !logical.do_hills) plumed_error("TRANSITIONTEMPERED must be used with HILLS keyword");
   if(logical.transition_tempering && !logical.do_grid)  plumed_error("TRANSITIONTEMPERED must be used with GRID keyword");
   if(logical.ttdebug && !logical.transition_tempering)  plumed_error("DEBUG_TRANSITIONTEMPERED must be used with TRANSITIONTEMPERED keyword");
+  if(logical.mcgdp_hills && !logical.do_hills)  plumed_error("MCGDP_HILLS must be used with HILLS keyword");
+  if(logical.mcgdp_hills && !logical.do_grid)  plumed_error("MCGDP_HILLS must be used with GRID keyword");
+  if(logical.mcgdp_hills && (count != mcgdp_count))  plumed_error("MCGDP_HILLS must be used for all CVs or none");
   // <JFD
 
   if(logical.commit && logical.do_hills) plumed_error("KEYWORD 'COMMITMENT' AND 'HILLS' ARE NOT COMPATIBLE");
@@ -1363,6 +1406,7 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
    // JFD>
    if(logical.dicksonian_tempering)  plumed_error("WELLTEMPERED USING THE DICKSON RULE NOT ENABLED");
    if(logical.transition_tempering)  plumed_error("TRANSITIONTEMPERED NOT ENABLED");
+   if(logical.mcgdp_hills)  plumed_error("MCGDP_HILLS NOT ENABLED");
    // <JFD
   }
 
@@ -1467,6 +1511,7 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
   if(logical.welltemp)   cite_please("bard+08prl",mtd_data->fplog);
   // JFD>
   if(logical.dicksonian_tempering) cite_please("dickson2011pre",mtd_data->fplog);
+  if(logical.mcgdp_hills) cite_please("mcgovern2013jcp", mtd_data->fplog);
   // <JFD
   if(logical.path)       cite_please("bran+07jcp",mtd_data->fplog);
   if(logical.puckering)  cite_please("sega+09jcp",mtd_data->fplog);
@@ -1513,6 +1558,7 @@ void PREFIX read_defaults()
   // JFD>
   logical.dicksonian_tempering  = 0;
   logical.transition_tempering  = 0;
+  logical.mcgdp_hills      = 0;
   // <JFD
   logical.tamd                  = 0;
   logical.debug                 = 0;
@@ -1731,10 +1777,14 @@ void PREFIX cite_please (const char* re, FILE *fplog){
     fprintf(fplog, "  A Temperature Accelerated Method for Sampling Free Energy and Determining Reaction Pathways in Rare Events Simulations \n");
     fprintf(fplog, "  Chem. Phys. Lett. 2006 vol. 426 pp. 168-175 \n");
  // JFD>
- } else if(!strcmp(re,"dickson2011pre")){      // #### d-AFED
+ } else if(!strcmp(re,"dickson2011pre")){
     fprintf(fplog, "  B. M. Dickson\n");
     fprintf(fplog, "  Approaching a parameter-free metadynamics \n");
     fprintf(fplog, "  Phys. Rev. E 2011 vol. 84 pp. 037701 \n");
+ } else if(!strcmp(re,"mcgovern2013jcp")){
+    fprintf(fplog, "  M. McGovern and J. J. De Pablo\n");
+    fprintf(fplog, "  A boundary correction algorithm for metadynamics in multiple dimensions.\n");
+    fprintf(fplog, " J. Chem. Phys. 2013 vol. 139 pp. 084102\n");
  // <JFD
  } else {
     assert(1); // wrong bib name
