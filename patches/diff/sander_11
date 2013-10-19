@@ -1,0 +1,270 @@
+patch -c -l -b -F 3 --suffix=.preplumed "./src/sander/Makefile" << \EOF_EOF
+*** src/sander/Makefile.preplumed	Thu Mar 17 12:20:33 2011
+--- src/sander/Makefile	Thu Mar 17 12:24:30 2011
+***************
+*** 119,125 ****
+      constantph.o prn_dipoles.o ips.o sglds.o iwrap2.o \
+      $(AMOEBAOBJ) bintraj.o \
+      spatial_recip.o spatial_fft.o parms.o softcore.o mbar.o molecule.o xref.o dssp.o \
+!     charmm.o
+  
+  FULLPIMDOBJ = pimd_vars.o pimd_force.o pimd_init.o cmd_vars.o cmd_matrix.o 
+  
+--- 119,129 ----
+      constantph.o prn_dipoles.o ips.o sglds.o iwrap2.o \
+      $(AMOEBAOBJ) bintraj.o \
+      spatial_recip.o spatial_fft.o parms.o softcore.o mbar.o molecule.o xref.o dssp.o \
+!     charmm.o $(METAOBJ)
+! 
+! include plumed.inc
+! 
+! METAOBJ=$(PLUMED_OBJECTS)
+  
+  FULLPIMDOBJ = pimd_vars.o pimd_force.o pimd_init.o cmd_vars.o cmd_matrix.o 
+  
+***************
+*** 148,154 ****
+  
+  LSCIVROBJ = lscivr_vars.o lsc_init.o lsc_xp.o
+  
+! LESOBJ= memory_module.o stack.o \
+      constants.o state.o nose_hoover.o nose_hoover_vars.o nose_hoover_init_LES.o \
+      qmmm_module.o trace.o lmod.o rand2.o lmodC.o xminC.o decomp.o icosasurf.o \
+      egb.LES.o remd.LES.o findmask.o \
+--- 152,158 ----
+  
+  LSCIVROBJ = lscivr_vars.o lsc_init.o lsc_xp.o
+  
+! LESOBJ= memory_module.o stack.o $(METAOBJ) \
+      constants.o state.o nose_hoover.o nose_hoover_vars.o nose_hoover_init_LES.o \
+      qmmm_module.o trace.o lmod.o rand2.o lmodC.o xminC.o decomp.o icosasurf.o \
+      egb.LES.o remd.LES.o findmask.o \
+***************
+*** 378,383 ****
+--- 382,392 ----
+  
+  uninstall: uninstall.serial uninstall.parallel
+  
++ metaclean:
++ 	rm -rf $(METAOBJ)
++ 
++ $(PLUMED_OBJECTS): metadyn.h
++ 
+  depend::
+  	./makedepend > depend
+  
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./src/sander/md.h" << \EOF_EOF
+*** src/sander/md.h.preplumed	Thu Mar 17 12:26:51 2011
+--- src/sander/md.h	Thu Mar 17 12:29:40 2011
+***************
+*** 19,25 ****
+        neb,vv,tmode,ipol,iesp,ievb,nodeid,num_noshake,    &!59
+        idecomp,icnstph,ntcnstph,maxdup,numexchg,repcrd,numwatkeep,hybridgb,  &!67
+        ibgion,ienion,profile_mpi,                    &!70
+!       ipb, inp                            !72
+  
+  common/mdi/nrp,nspm,ig, &                                               !3
+        ntx,ntcx,ntxo,ntt,ntp,ntr,init,ntcm,nscm, &                       !12
+--- 19,26 ----
+        neb,vv,tmode,ipol,iesp,ievb,nodeid,num_noshake,    &!59
+        idecomp,icnstph,ntcnstph,maxdup,numexchg,repcrd,numwatkeep,hybridgb,  &!67
+        ibgion,ienion,profile_mpi,                    &!70
+!       ipb, inp, &                             !72
+!       plumed                            !73
+  
+  common/mdi/nrp,nspm,ig, &                                               !3
+        ntx,ntcx,ntxo,ntt,ntp,ntr,init,ntcm,nscm, &                       !12
+***************
+*** 31,39 ****
+        iwrap,nrespa,irespa,nrespai,icfe,rbornstat, &                     !52
+        ivcap,iconstreff,idecomp,klambda,icnstph,ntcnstph,maxdup,neb,vv, &!61
+        tmode,ipol,iesp,ievb,nodeid,num_noshake,ibgion,ienion, &          !69
+!       profile_mpi,ipb, inp                                              !72
+  
+! parameter (BC_MDI=72) ! Number of elements in the common block;
+                        ! Be sure to update if you change things
+  
+  ! ... floats:
+--- 32,40 ----
+        iwrap,nrespa,irespa,nrespai,icfe,rbornstat, &                     !52
+        ivcap,iconstreff,idecomp,klambda,icnstph,ntcnstph,maxdup,neb,vv, &!61
+        tmode,ipol,iesp,ievb,nodeid,num_noshake,ibgion,ienion, &          !69
+!       profile_mpi,ipb, inp ,plumed                                      !73
+  
+! parameter (BC_MDI=73) ! Number of elements in the common block;
+                        ! Be sure to update if you change things
+  
+  ! ... floats:
+***************
+*** 71,79 ****
+  
+  character(len=4) iwtnm,iowtnm,ihwtnm
+    character(len=256) restraintmask,bellymask,tgtfitmask,&
+!             tgtrmsmask,noshakemask,crgmask,iwrap_mask
+  common/mds/ restraintmask,bellymask,tgtfitmask,tgtrmsmask,noshakemask,crgmask,  &
+!             iwtnm,iowtnm,ihwtnm(2),iwrap_mask
+  
+  !-------------END    md.h  ------------------------------------------------
+  
+--- 72,80 ----
+  
+  character(len=4) iwtnm,iowtnm,ihwtnm
+    character(len=256) restraintmask,bellymask,tgtfitmask,&
+!             tgtrmsmask,noshakemask,crgmask,iwrap_mask,plumedfile
+  common/mds/ restraintmask,bellymask,tgtfitmask,tgtrmsmask,noshakemask,crgmask,  &
+!             iwtnm,iowtnm,ihwtnm(2),iwrap_mask,plumedfile
+  
+  !-------------END    md.h  ------------------------------------------------
+
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./src/sander/mdread.f" << \EOF_EOF
+*** src/sander/mdread.f.preplumed	Thu Mar 17 12:24:46 2011
+--- src/sander/mdread.f	Thu Mar 17 12:26:41 2011
+***************
+*** 115,120 ****
+--- 115,121 ----
+           noshakemask,crgmask, iwrap_mask,&
+           mmtsb_switch, mmtsb_iterations,rdt,icnstph,solvph,ntcnstph, &
+           ifqnt,ievb, ipimd, itimass, ineb,profile_mpi, ilscivr, icorf_lsc, &
++          plumed,plumedfile, &
+           ipb, inp, &
+           gbneckscale, & 
+           gbalphaH,gbbetaH,gbgammaH, &
+***************
+*** 183,188 ****
+--- 184,191 ----
+     ntt = 0
+     nchain = 1
+     temp0 = 300.0d0
++    plumed = 0
++    plumedfile = 'plumed.dat'
+  #ifdef LES
+     ! alternate temp for LES copies, if negative then use single bath
+     ! single bath not the same as 2 baths with same target T
+***************
+*** 458,463 ****
+--- 461,471 ----
+        call mexit(6,1)
+     end if
+  
++    if (plumed.eq.1) then
++      write(6, '(1x,a,/)')   'PLUMED is on'
++       write(6, '(1x,a,a,/)') 'PLUMEDfile is ',plumedfile
++    endif
++ 
+  #ifdef RISM
+     !force igb=6 to get vacuum electrostatics.  This must be done ASAP to ensure SANDER's
+     !electrostatics are initialized properly
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./src/sander/runmd.f" << \EOF_EOF
+*** src/sander/runmd.f.preplumed	Thu Mar 17 12:35:54 2011
+--- src/sander/runmd.f	Thu Mar 17 12:46:03 2011
+***************
+*** 564,569 ****
+--- 564,580 ----
+     ener%cmt(1:4) = 0.d0
+     nitp = 0
+     nits = 0
++ 
++    ! init PLUMED
++    if(plumed.eq.1) then
++       if(ifbox/=0 .and. ifbox/=1 .and. ifbox/=2) then
++        write (6,*) "!!!!! PLUMED ERROR: Only orthorhombic and truncted octahedron cells are supported in this release."
++        write (6,*) "!!!!! ABORTING RUN"
++        stop
++       endif
++       call init_metadyn(nr,dt,amass,xx(l15),ifbox,0,trim(adjustl(plumedfile))//char(0))
++    endif
++    ! end init PLUMED
+     
+     !=======================================================================
+     !     ----- MAKE A FIRST DYNAMICS STEP -----
+***************
+*** 675,680 ****
+--- 686,697 ----
+           call force(xx,ix,ih,ipairs,x,f,ener,ener%vir, &
+                    xx(l96),xx(l97),xx(l98),xx(l99), qsetup, &
+                    do_list_update,nstep)
++ 
++          !PLUMED force added
++          if(plumed.eq.1) then
++            call  meta_force_calculation(box,nstep,x,v,x,f,f,f,ener);
++          end if
++          !PLUMED end
+  #ifdef MPI
+           if ( ievb /= 0 ) then
+  #ifdef LES
+***************
+*** 1216,1221 ****
+--- 1233,1244 ----
+        call force(xx,ix,ih,ipairs,x,f,ener,ener%vir, &
+                 xx(l96),xx(l97),xx(l98),xx(l99), qsetup, &
+                 do_list_update,nstep)
++       !PLUMED force added
++       if(plumed.eq.1) then
++         call  meta_force_calculation(box,nstep,x,v,x,f,f,f,ener);
++       end if
++       !PLUMED end
++ 
+  #if defined(MPI)
+           if ( ievb /= 0 ) then
+  #ifdef LES
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./src/sander/runmin.f" << \EOF_EOF
+*** src/sander/runmin.f.preplumed	Thu Mar 17 12:46:23 2011
+--- src/sander/runmin.f	Thu Mar 17 12:48:06 2011
+***************
+*** 168,173 ****
+--- 168,184 ----
+     iterc = 0
+     n_force_calls = 0
+     iterfm = iterc
++ 
++    ! init PLUMED
++    if(plumed.eq.1) then
++       if(ifbox/=0 .and. ifbox/=1 .and. ifbox/=2) then
++        write (6,*) "!!!!! PLUMED ERROR: Only orthorhombic and truncted octahedron cells are supported in this release."
++        write (6,*) "!!!!! ABORTING RUN"
++        stop
++       endif
++       call init_metadyn(nr,1.0,xx(lmass),xx(l15),ifbox,0,trim(adjustl(plumedfile))//char(0))
++    endif
++    ! end init PLUMED
+     
+     !     ----- LET THE INITIAL SEARCH DIRECTION BE MINUS THE GRADIENT
+     !           VECTOR. ITERRS GIVES THE ITERATION NUMBER OF THE MOST
+***************
+*** 243,248 ****
+--- 254,266 ----
+     call force(xx,ix,ih,ipairs,x,fg,ene,ene%vir, &
+           xx(l96), xx(l97), xx(l98),xx(l99),qsetup, do_list_update,n_force_calls)
+  
++     !PLUMED force added
++     if(plumed.eq.1) then
++       call  meta_force_calculation(box,n_force_calls,x,x,x,fg,fg,fg,ene);
++     end if
++     !PLUMED end
++ 
++ 
+  #ifdef MPI
+  
+     ! If softcore potentials are used, collect their dvdl contribution from the nodes
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./src/sander/sander.f" << \EOF_EOF
+*** src/sander/sander.f.preplumed	Thu Mar 17 12:30:03 2011
+--- src/sander/sander.f	Thu Mar 17 12:34:40 2011
+***************
+*** 705,710 ****
+--- 705,714 ----
+     ! GMS: Broadcast parameters from module 'molecule'
+     call mpi_bcast(mol_info%natom,1,mpi_integer,0,commsander,ierr)
+     call mpi_bcast(mol_info%nres,1,mpi_integer,0,commsander,ierr)
++ 
++    call mpi_bcast(plumed,1,MPI_INTEGER,0,commsander,ierr)
++    call mpi_bcast(plumedfile,256,MPI_CHARACTER,0,commsander,ierr)
++ 
+     call mpi_barrier(commsander,ierr)
+  
+     ! ---allocate memory on the non-master nodes:
+EOF_EOF

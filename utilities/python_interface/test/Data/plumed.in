@@ -1,0 +1,13 @@
+# general options 
+HILLS HEIGHT 0.1 W_STRIDE 10
+#WELLTEMPERED SIMTEMP 300 BIASFACTOR 10 
+
+# print each 1 time units and add a time offset of 0.0 to COLVAR 
+PRINT W_STRIDE 1 T_OFFSET 0.0 
+
+# definition of CVs 
+NOTE distance between hydrogens 
+DISTANCE LIST 1 2 SIGMA 0.35 
+
+ENDMETA 
+

@@ -1,0 +1,130 @@
+New in version 1.3
+* New Features:
+- Reconaissance Metadynamics
+- Driven adiabatic free energy dynamics (d-AFED, contributed by Michel Cuendet)
+- Polynomial combination of CVs
+- Function on CVs
+- Tool for unbiasing well-tempered metadynamics calculations
+- Improved parallel performances with gromacs (Contributed by Paer Soederhjelm) 
+- Collective variable RMSDTOR has been removed, as it was buggy.
+  It can be mimicked by TORSION + POLY
+- Projection of gradient of CVs added 
+- Python interface to ASE (contributed by Rosa Bulo)
+- New INTERVAL keyword to limit a region to be sampled using Metadynamics (contributed by Alessandro Laio)
+- Tool to perform bias-exchange simulations via linux shell with every MD engine
+
+* New Collective Variables:
+- PCA (contributed by Ludovico Sutto)
+- SPRINT topological variables
+- New type of HBONDS (type 5, contributed by Michel Cuendet)
+- Radial distribution function
+- Angular distribution function
+- Gyration tensor based CVs (Contributed by Jiri Vymetal) 
+
+* Bugs Fixed:
+- Many changes to the LAMMPS patches thanks to Axel Kohlmeyer and others.
+- Driver more flexible: (Contributed by Toni Giorgino)
+	- pathnames on the command line; 
+        - larger PDB files; 
+        - larger no. of residues; 
+        - orthorhombic cells should now be recognized for all DCDs.
+
+* New Supported Codes:
+- Cpmd 3.15.1
+- Namd 2.8
+- Amber 11
+- Gromacs 4.5.5
+- Quantum-ESPRESSO 4.3.2
+- Lammps 27-10-2011
+- ACEMD 1.2
+
+* Codes which are not supported anymore:
+- Gromacs 3.3
+- Quantum-ESPRESSO 4.1 and 4.2
+- Amber 9
+- DLPOLY 2.16, 2.19
+
+New in version 1.2.2
+* New Features:
+
+* New Collective Variables:
+
+* Bugs Fixed:
+- fixed wrong column names in the new formatted COLVAR file
+- fixed bug with external potential and commitment analysis
+
+* New Supported Codes:
+- Quantum-ESPRESSO 4.2
+- GROMACS 4.5.3
+- NAMD 2.7
+
+New in version 1.2
+* New Features:
+- Compatible with the parallel implementation of AMBER (sander module)
+- Adiabatic Biased Molecular Dynamics
+- Redesigned Multiple Walkers, more robust on slow filesystems
+- Inversion condition to treat CV boundaries
+- External fixed potential acting on CVs read from file
+- Read and write metadynamics bias from/to file 
+- New standalone utility to run PLUMED as an external tool
+- Steerplan for complex steered MD simulations
+- New format for COLVAR file, including tags, and utilities/plumedat.sh, to parse it
+- Option to add a constant force on CVs
+- Optimization of code for mean-square-displacement
+- Option to use CMAP PATH with PBC
+
+* New Collective Variables:
+- Potential energy of the system (only for GROMACS, AMBER and DL_POLY) 
+- Similarity to ideal alpha helix and antiparallel/parallel beta sheet structure 
+- Number of alpha-helix loops
+- Distance from and projection onto a generic axis
+- Project a distance along Cartesian axis and planes (contributed by Toni Giorgino)
+- Difference between two distances
+
+* Bugs Fixed:
+- fixed bug in PUCKERING variable
+- fixed bug in BIAS-EXCHANGE + RESTRAINTS
+- fixed bug in ALPHABETA restraint
+- fixed bug in PATH variables in contact map space
+- fixed bug in GROMACS3.3 + parallel tempering or bias-exchange metadynamics
+- fixed bug in GRID
+- fixed AMBER interface, now supports truncated octahedron periodicity
+
+* New Supported Codes:
+- LAMMPS (15 Jan 2010) 
+- Quantum-ESPRESSO 4.1.2
+- NAMD 2.7b2 
+- GROMACS 4.0.7
+
+New in version 1.1
+* Features:
+- Compatible with the domain-decomposition parallelization of GROMACS4.
+- The bias can be interpolated using cubic splines on a grid
+  (accelerates long metadynamics simulations with many hills).
+- Sum over hills is parallelized on GROMACS and DLPOLY
+  (accelerates long metadynamics simulations with many hills).
+- More flexibility in the application of PBC to collective variable
+  (useful for intramolecular coordinates).
+- New directive ALIGN_ATOMS to work around codes which break molecules (such as GROMACS4 with some setup).
+- Redesigned parallel tempering-metadynamics code, less memory required.
+- Redesigned parser, with more error checking, plus a few features such as line continuation and NOTE keyword.
+- Redesigned patching system, with more error checking.
+- Output files are now opened once at the beginning of the simulation (more efficient, especially in replica
+  exchange simulations where a huge number of files is opened in the same directory).
+- Possibility of switching off metadynamics on a single variable by omitting the SIGMA flag.
+- Driver: support to NPT runs with variable cell dimensions; number of CVs is now unlimited; pdb output name has a default when -interval is specified.
+- Sum_hills has been parallelized.
+* New collective variables:
+- Electrostatic potential felt by a atom or group of atoms.
+- Puckering variables (thanks to Marcello Sega).
+* Bugs fixed:
+- Parallel tempering-metadynamics and bias-exchange: fixed bug when using torsional collective variables.
+- Fully compatible with particle-decomposition in GROMACS (it is not anymore necessary that all the
+  particles involved in metadynamics are assigned to the first node).
+- Driver: fixed bug when using a subset of the system atoms in the pdb. 
+* Supported codes:
+- ACEMD 1.1 added (contributed by Francesco Gervasio)
+- NAMD 2.7b1 added
+- AMBER 10 added
+- DLPOLY 2.20 added
+- GROMACS 4.0.5 added

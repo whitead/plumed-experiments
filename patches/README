@@ -1,0 +1,61 @@
+Please refer to the manual for a complete guide to installation.
+
+Each of the packages which are compatible with plumed has his own patching script.
+
+SANDER 10                       : plumedpatch_sander_10.sh
+SANDER 11                       : plumedpatch_sander_11.sh
+GROMACS 4.0.7                   : plumedpatch_gromacs_4.0.4.sh
+GROMACS 4.5.1                   : plumedpatch_gromacs_4.5.1.sh
+GROMACS 4.5.5                   : plumedpatch_gromacs_4.5.5.sh
+NAMD 2.6                        : plumedpatch_namd_2.6.sh
+NAMD 2.7                        : plumedpatch_namd_2.7.sh
+NAMD 2.8                        : plumedpatch_namd_2.8.sh
+DLPOLY 2.20                     : plumedpatch_dlpoly_2.20.sh
+LAMMPS (downloaded 27 Oct 2011) : plumedpatch_lammps_27-10-2011.sh
+Quantum-ESPRESSO 4.3.2          : plumedpatch_qespresso_4.3.2.sh
+CPMD 3.15.1			: plumedpatch_cpmd-3.15.1.sh
+
+In the following, we will refer to it as plumedpatch, irrespectively of the code.
+
+At the moment of this release of plumed, only the listed versions of the listed codes
+have been tested.
+
+ACEMD USERS: The compilation procedure for ACEMD is slightly different from that of
+the other codes. See the complete PLUMED manual.
+
+* TO PATCH
+
+1)  set the plumedir environment variable so that it points to PLUMED root:
+(Bourne shell) export plumedir="root_of_plumed_package"
+(C shell)      setenv plumedir "root_of_plumed_package"
+
+2)  copy or link the proper plumedpatch file in the root directory of the md code
+
+3a) ONLY SANDER:  Configure the code as usual to produce the config.h (or config_amber.h in AMBER 10) in src/
+3b) ONLY GROMACS: Configure the code as usual to produce the Makefile.
+3c) ONLY GROMACS4.5: Multithreading is not supported in plumed, if you want a scalar or a parallel version of gromacs
+                     configure with --disable-threads or with --enable-mpi, respectively.
+3d) ONLY NAMD:    Configure the code as usual.
+                  In the plumedpatch script, modify the myarch variable to match your architecture.
+3e) ONLY LAMMPS: the directory in which plumedpatch has to be copied is the src directory. Arch should be changed accordingly 
+                 to insert the -DLAMMPS_PLUMED define flag. 
+
+4) launch ./plumedpatch -patch
+
+5) compile the md code as usual
+
+* TO UNPATCH
+
+At any time the user may want to ''unpatch'' the MD code and revert back to
+the original distribution.
+To do so, the user should go to the directory where the plumed patch has been 
+copied and type: 
+
+./plumedpatch -revert
+
+* NOTES:
+(1) with DLPOLY, using some compilers (.e.g g95) the option -fno-second-underscore
+    must be added in the compilation flag to allow the correct linking of C and Fortran routines
+(2) with DLPOLY, plumedpatch is also patching the Makefile in the build directory. be sure to use
+    the patched ones
+(3) with CPMD, you may need to modify variables cxx, cxxflag, extraflag in plumedpatch_cpmd-3.15.1.sh

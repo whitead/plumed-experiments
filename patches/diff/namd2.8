@@ -1,0 +1,220 @@
+patch -c -l -b -F 3 --suffix=.preplumed "./src/SimParameters.h" << \EOF_EOF
+*** ./src/SimParameters.h.preplumed	2009-02-20 18:28:39.000000000 +0100
+--- ./src/SimParameters.h	2010-02-05 11:39:30.345406002 +0100
+***************
+*** 340,345 ****
+--- 340,351 ----
+  	Bool miscForcesOn;		//  Using misc forces?
+  	Bool colvarsOn;         //  Using the colvars module?
+  
++       // begin PLUMED changes
++                Bool metaDynamicsOn;            //  Using PLUMED?
++                char metaFilename[129];         //  PLUMED filename
++      // end PLUMED changes
++       
++ 
+  	Bool fixedAtomsOn;		//  Are there fixed atoms?
+  	Bool fixedAtomsForces;		//  Calculate forces anyway?
+  
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./src/SimParameters.C" << \EOF_EOF
+*** ./src/SimParameters.C.preplumed	2009-02-20 18:28:39.000000000 +0100
+--- ./src/SimParameters.C	2010-02-05 11:39:30.368416881 +0100
+***************
+*** 1341,1347 ****
+     opts.optional("miscForces", "miscForcesScript",
+       "script for misc forces", PARSE_MULTIPLES);
+  
+!    ////  Free Energy Perturbation
+     opts.optionalB("main", "freeEnergy", "Perform free energy perturbation?",
+       &freeEnergyOn, FALSE);
+     opts.require("freeEnergy", "freeEnergyConfig",
+--- 1341,1355 ----
+     opts.optional("miscForces", "miscForcesScript",
+       "script for misc forces", PARSE_MULTIPLES);
+  
+!     // begin PLUMED changes
+!     ////  Global Forces / PLUMED 
+!     opts.optionalB("main", "plumed", "Is PLUMED active?",
+!       &metaDynamicsOn, FALSE);
+!     opts.require("plumed", "plumedfile",
+!       "PLUMED script", PARSE_STRING);
+!     // end PLUMED changes
+!  
+!   ////  Free Energy Perturbation
+     opts.optionalB("main", "freeEnergy", "Perform free energy perturbation?",
+       &freeEnergyOn, FALSE);
+     opts.require("freeEnergy", "freeEnergyConfig",
+***************
+*** 4105,4111 ****
+     // Global forces configuration
+  
+     globalForcesOn = ( tclForcesOn || freeEnergyOn || miscForcesOn ||
+!                       (IMDon) || SMDOn || TMDOn || colvarsOn || symmetryOn );
+  
+  
+     if (tclForcesOn)
+--- 4113,4119 ----
+     // Global forces configuration
+  
+     globalForcesOn = ( tclForcesOn || freeEnergyOn || miscForcesOn ||
+!                       (IMDon) || SMDOn || TMDOn || colvarsOn || symmetryOn || metaDynamicsOn  );
+  
+  
+     if (tclForcesOn)
+***************
+*** 4146,4152 ****
+       iout << endi;
+     }
+  
+!    if (freeEnergyOn)
+     {
+       iout << iINFO << "FREE ENERGY PERTURBATION ACTIVE\n";
+  
+--- 4154,4177 ----
+       iout << endi;
+     }
+  
+!     // begin PLUMED changes
+!     if (metaDynamicsOn)
+!     {
+!       iout << iINFO << "PLUMED ACTIVE\n";
+!  
+!       current = config->find("plumedfile");
+!       iout << iINFO << "PLUMED CONFIG FILE   "
+!          << current->data << "\n" << endi;
+!       strcpy(metaFilename,current->data);
+!  
+!       ifstream metaFile(current->data);
+!       if ( ! metaFile ) NAMD_die("Error reading PLUMED config file.\n");
+!  
+!     }
+!     // end PLUMED changes
+!  
+!  
+!   if (freeEnergyOn)
+     {
+       iout << iINFO << "FREE ENERGY PERTURBATION ACTIVE\n";
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./src/ComputeMgr.C" << \EOF_EOF
+*** ./src/ComputeMgr.C.preplumed	2008-12-17 23:26:19.000000000 +0100
+--- ./src/ComputeMgr.C	2010-02-05 11:39:30.391116657 +0100
+***************
+*** 72,77 ****
+--- 72,80 ----
+  #include "GlobalMasterTMD.h"
+  #include "GlobalMasterEasy.h"
+  #include "GlobalMasterMisc.h"
++ // begin PLUMED changes
++ #include "metadyn.h"
++ // end PLUMED changes
+  #include "GlobalMasterFreeEnergy.h"
+  #include "GlobalMasterColvars.h"
+  
+***************
+*** 609,614 ****
+--- 612,622 ----
+              masterServerObject->addClient(new GlobalMasterTMD());
+          if (simParams->miscForcesOn)
+              masterServerObject->addClient(new GlobalMasterMisc());
++     // begin PLUMED changes
++     if(simParams->metaDynamicsOn){
++       masterServerObject->addClient(new GlobalMasterMetaDynamics());
++     }
++     // end PLUMED changes
+          if ( simParams->freeEnergyOn )
+              masterServerObject->addClient(new GlobalMasterFreeEnergy());
+  		if ( simParams->colvarsOn )
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./Makefile" << \EOF_EOF
+*** ./Makefile.preplumed	2009-03-13 21:30:00.000000000 +0100
+--- ./Makefile	2010-02-05 11:41:13.670259739 +0100
+***************
+*** 9,19 ****
+  
+  include Make.config
+  
+  # define below Make.config so Win32 can change default target to winall
+  default: all
+  
+  # pass version/platform information to compile
+! RELEASE=$(COPTD)NAMD_VERSION=\"$(NAMD_VERSION)\" $(COPTD)NAMD_PLATFORM=\"$(NAMD_PLATFORM)\" $(SCYLDFLAGS)
+  
+  # directories
+  SRCDIR = src
+--- 9,21 ----
+  
+  include Make.config
+  
++ include plumed.inc
++ 
+  # define below Make.config so Win32 can change default target to winall
+  default: all
+  
+  # pass version/platform information to compile
+! RELEASE=$(COPTD)NAMD_VERSION=\"$(NAMD_VERSION)\" $(COPTD)NAMD_PLATFORM=\"$(NAMD_PLATFORM)\" $(COPTD)NAMD $(RECON_FLAGS) $(SCYLDFLAGS)
+  
+  # directories
+  SRCDIR = src
+***************
+*** 138,143 ****
+--- 140,146 ----
+  	$(DSTDIR)/GlobalMasterTMD.o \
+  	$(DSTDIR)/GlobalMasterFreeEnergy.o \
+  	$(DSTDIR)/GlobalMasterEasy.o \
++ 	$(PLUMED_OBJECTS) \
+  	$(DSTDIR)/GlobalMasterMisc.o \
+  	$(DSTDIR)/colvarmodule.o \
+  	$(DSTDIR)/colvarparse.o \
+***************
+*** 303,309 ****
+  CHARMLIB = $(CHARM)/lib
+  
+  # Libraries we may have changed
+! LIBS = $(CUDAOBJS) $(PLUGINLIB) $(DPMTALIBS) $(DPMELIBS) $(TCLDLL)
+  
+  # CXX is platform dependent
+  CXXBASEFLAGS = $(COPTI)$(CHARMINC) $(COPTI)$(SRCDIR) $(COPTI)$(INCDIR) $(DPMTA) $(DPME) $(COPTI)$(PLUGININCDIR) $(COPTD)STATIC_PLUGIN $(TCL) $(FFT) $(CUDA) $(MEMOPT) $(CCS) $(RELEASE) $(EXTRADEFINES) $(TRACEOBJDEF)
+--- 306,312 ----
+  CHARMLIB = $(CHARM)/lib
+  
+  # Libraries we may have changed
+! LIBS = $(CUDAOBJS) $(PLUGINLIB) $(DPMTALIBS) $(DPMELIBS) $(TCLDLL) 
+  
+  # CXX is platform dependent
+  CXXBASEFLAGS = $(COPTI)$(CHARMINC) $(COPTI)$(SRCDIR) $(COPTI)$(INCDIR) $(DPMTA) $(DPME) $(COPTI)$(PLUGININCDIR) $(COPTD)STATIC_PLUGIN $(TCL) $(FFT) $(CUDA) $(MEMOPT) $(CCS) $(RELEASE) $(EXTRADEFINES) $(TRACEOBJDEF)
+***************
+*** 349,355 ****
+  	$(FFTLIB) \
+  	$(PLUGINLIB) \
+  	$(CHARMOPTS) \
+! 	-lm -o namd2
+  
+  charmrun: $(CHARM)/bin/charmrun # XXX
+  	$(COPY) $(CHARM)/bin/charmrun $@
+--- 352,358 ----
+  	$(FFTLIB) \
+  	$(PLUGINLIB) \
+  	$(CHARMOPTS) \
+! 	-lm $(RECON_LIBS) -o namd2
+  
+  charmrun: $(CHARM)/bin/charmrun # XXX
+  	$(COPY) $(CHARM)/bin/charmrun $@
+***************
+*** 373,379 ****
+  	$(FFTLIB) \
+  	$(PLUGINLIB) \
+  	$(CHARMOPTS) \
+! 	-o namd2
+  
+  charmd.exe:
+  	$(COPY) $(CHARM)/bin/charmd.exe charmd.exe
+--- 376,382 ----
+  	$(FFTLIB) \
+  	$(PLUGINLIB) \
+  	$(CHARMOPTS) \
+! 	$(RECON_LIBS) -o namd2
+  
+  charmd.exe:
+  	$(COPY) $(CHARM)/bin/charmd.exe charmd.exe
+EOF_EOF

@@ -1,0 +1,8 @@
+This is an example running 4 replicas.
+
+Each replica is a CPMD simulation of a Si4 cluster using DFT-LDA at 300K.
+
+Put in this directory the files bias-exchange.sh and exchange-tool.x,
+change BASE_DIR in bias-exchange.sh,
+modify run-walker.sh in each directory walker1/2/3/4 with the correct path to cpmd,
+then execute ./run-walker.sh in each walker directory.

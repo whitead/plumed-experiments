@@ -1,0 +1,26 @@
+INSTALLATION
+------------
+
+PLUMED for ACEMD is compiled as a dynamically-linked library, and
+loaded at run-time.
+
+To install the plug-in:
+   1. Type "make"
+   2. Copy 'plumed.so' in a place where ACEMD is able to find it 
+
+Obtain the latest version of ACEMD for free at: 
+http://www.acellera.com/acemd/
+
+For information on using ACEMD+PLUMED, please see:
+http://www.multiscalelab.org/acemd/plugins
+
+
+USAGE
+-----
+
+One specifies the plugin's path in the acemd input file as follows:
+
+    pluginload meta PATH-TO/plumed.so
+    pluginarg  meta input META_INP
+
+The second line specifies the location of the META_INP file.

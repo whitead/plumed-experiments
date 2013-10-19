@@ -1,0 +1,11 @@
+Author:       Rosa Bulo
+Organization: Vrije Universiteit Amsterdam
+############################################
+
+Use the makefile to compile a library (libplumed.so) from the files in the common_files directory.
+
+Remember to put the directory in which you compile the library in your $LD_LIBRARY_PATH variable
+
+Other than that, the tests should work out of the box. If not, try setting your $PYTHONPATH environment variable to 
+the pylib directory. It should not be necessary, because I am setting it at runtime, but this could be 
+system dependent, I am not completely sure.

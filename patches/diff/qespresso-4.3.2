@@ -1,0 +1,199 @@
+patch -c -l -b -F 3 --suffix=.preplumed "./clib/Makefile" << \EOF_EOF
+*** ./clib/Makefile.preplumed	2010-08-13 12:50:08.000000000 +0200
+--- ./clib/Makefile	2011-03-23 13:47:04.000000000 +0100
+***************
+*** 1,8 ****
+--- 1,10 ----
+  # Makefile for clib
+  
+  include ../make.sys
++ include ./plumed.inc
+  
+  OBJS = \
++ $(PLUMED_OBJECTS) \
+  customize_signals.o \
+  stack.o \
+  c_mkdir.o \
+***************
+*** 27,30 ****
+--- 29,33 ----
+  clean :
+  	- rm -f clib.a *.o *.mod *.i core*
+  
++ $(PLUMED_OBJECTS): metadyn.h
+  include make.depend
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./PW/plugin_initialization.f90" << \EOF_EOF
+*** ./PW/plugin_initialization.f90.preplumed	2011-03-22 13:26:44.000000000 +0100
+--- ./PW/plugin_initialization.f90	2011-03-23 13:47:04.000000000 +0100
+***************
+*** 15,21 ****
+--- 15,44 ----
+    !
+    USE plugin_flags
+    !
++   USE ions_base,        ONLY : amass, ityp, nat
++   !
++   USE dynamics_module,  ONLY : dt
++   !
++   !
+    IMPLICIT NONE
+    !
++   REAL(DP), ALLOCATABLE :: mass(:),charge(:)
++   INTEGER  :: na
++   !
++   IF ( use_plumed .and. ionode ) THEN
++ 
++     ALLOCATE(mass(nat),charge(nat))
++ 
++     DO na = 1, nat
++     !
++     mass(na)   = amass( ityp(na) )
++     charge(na) = amass( ityp(na) )
++     !
++     END DO
++ 
++     CALL init_metadyn(nat,dt,mass,charge,1,1.0D0,trim(tmp_dir)//'/'//"plumed.dat"//char(0));
++ 
++     DEALLOCATE(mass,charge)
++   ENDIF
+    !
+  END SUBROUTINE plugin_initialization
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./PW/plugin_forces.f90" << \EOF_EOF
+*** ./PW/plugin_forces.f90.preplumed	2011-03-22 13:26:44.000000000 +0100
+--- ./PW/plugin_forces.f90	2011-03-23 13:47:04.000000000 +0100
+***************
+*** 9,15 ****
+  SUBROUTINE plugin_forces()
+    !----------------------------------------------------------------------------
+    !
+!   !
+    USE mp_global,        ONLY : intra_image_comm
+    USE mp,               ONLY : mp_bcast
+    USE io_global,        ONLY : stdout, ionode, ionode_id
+--- 9,15 ----
+  SUBROUTINE plugin_forces()
+    !----------------------------------------------------------------------------
+    !
+!   !  
+    USE mp_global,        ONLY : intra_image_comm
+    USE mp,               ONLY : mp_bcast
+    USE io_global,        ONLY : stdout, ionode, ionode_id
+***************
+*** 18,24 ****
+--- 18,42 ----
+    !
+    USE plugin_flags
+    !
++   USE cell_base,        ONLY : alat, at
++   USE ions_base,        ONLY : tau, nat
++   USE force_mod,        ONLY : force
++   USE control_flags,    ONLY : istep
++   !
+    IMPLICIT NONE
+    !
++   REAL(DP) :: at_meta(3,3)
++   REAL(DP), ALLOCATABLE :: tau_meta(:,:)
++   !
++   IF(use_plumed) then
++     IF(ionode)THEN
++       at_meta=alat*at;
++       allocate(tau_meta(3,nat))
++       tau_meta=alat*tau
++       call meta_force_calculation(at_meta,istep,tau_meta(1,1),0,0,force(1,1),0,0,0)
++       deallocate(tau_meta)
++     ENDIF
++     CALL mp_bcast(force, ionode_id, intra_image_comm)
++   ENDIF
+    !
+  END SUBROUTINE plugin_forces
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./CPV/plugin_initialization.f90" << \EOF_EOF
+*** ./CPV/plugin_initialization.f90.preplumed	2011-03-22 13:26:42.000000000 +0100
+--- ./CPV/plugin_initialization.f90	2011-03-23 13:47:04.000000000 +0100
+***************
+*** 16,22 ****
+--- 16,45 ----
+    !
+    USE plugin_flags
+    !
++   USE ions_base,        ONLY : amass, ityp, nat
++   !
++   USE time_step,  ONLY : delt
++   !
++   !
+    IMPLICIT NONE
+    !
++   REAL(DP), ALLOCATABLE :: mass(:),charge(:)
++   INTEGER  :: na
++   !
++   IF ( use_plumed .and. ionode ) THEN
++ 
++     ALLOCATE(mass(nat),charge(nat))
++ 
++     DO na = 1, nat
++     !
++     mass(na)   = amass( ityp(na) )
++     charge(na) = amass( ityp(na) )
++     !
++     END DO
++ 
++     CALL init_metadyn(nat,delt,mass,charge,1,1.0D0,trim(tmp_dir)//'/'//"plumed.dat"//char(0));
++ 
++     DEALLOCATE(mass,charge)
++   ENDIF
+    !
+  END SUBROUTINE plugin_initialization
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./CPV/plugin_forces.f90" << \EOF_EOF
+*** ./CPV/plugin_forces.f90.preplumed	2011-03-22 13:26:42.000000000 +0100
+--- ./CPV/plugin_forces.f90	2011-03-23 13:51:44.000000000 +0100
+***************
+*** 18,24 ****
+--- 18,61 ----
+    !
+    USE plugin_flags
+    !
++   USE cell_base,        ONLY : at, h, alat
++   USE cell_base,        ONLY : s_to_r, r_to_s
++   USE ions_base,        ONLY : nat, na, nsp
++   USE ions_positions,   ONLY : taus, fion
++   USE cp_main_variables, ONLY : nfi
++   !
+    IMPLICIT NONE
+    !
++   REAL(DP) :: at_meta(3,3)
++   REAL(DP), ALLOCATABLE :: tau_meta(:,:)
++   INTEGER :: istep
++   !
++   IF(use_plumed) then
++      IF ( ionode ) THEN
++        at_meta(:,:)=alat*at(:,:)
++ 
++        allocate(tau_meta(3,nat))
++        tau_meta(:,:) = 0.0D0
++ 
++        call s_to_r(taus,tau_meta,na,nsp,h)
++ 
++        istep = nfi
++        !
++        ! convert to Rydberg as BOLTZMAN constant has been defined in Ry 
++        ! for quantum ESPRESSO
++        !
++        fion(:,:) = fion(:,:) * 2.0D0
++        !
++        call meta_force_calculation(at_meta,istep,tau_meta(1,1),0,0,fion(1,1),0,0,0)
++        !
++        ! convert to Hartree (cp internal units)
++        !
++        fion(:,:) = fion(:,:) / 2.0D0
++        !
++        deallocate(tau_meta)
++      END IF
++ 
++      CALL mp_bcast( fion, ionode_id, intra_image_comm )
++   ENDIF
+    !
+  END SUBROUTINE plugin_forces
+EOF_EOF

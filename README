@@ -1,0 +1,41 @@
+PLUMED is a plugin for free-energy calculations in molecular systems which works 
+together with some of the most popular molecular dynamics codes, such as 
+GROMACS, NAMD, DL_POLY, LAMMPS and the SANDER module in AMBER. It also works with the very fast 
+CUDA/GPU MD code ACEMD and, more recently, it has been extended to work with ab initio
+ MD codes, such as Quantum-ESPRESSO and CPMD. 
+Free-energy calculations can be performed as a function of many order parameters
+with a particular focus on biological problems and using state-of-the-art methods 
+such as metadynamics, umbrella sampling and Jarzynski-equation based steered MD.
+The present software, written in ANSI-C language, can be easily interfaced with
+both fortran and C/C++ codes. 
+
+For more information, see:
+http://www.plumed-code.org/
+
+If you have any questions, please subscribe to plumed-users@googlegroups.com
+
+Enjoy!
+
+The PLUMED Developers Team
+
+
+List of Files:
+
+The most important files that provide the aforementioned functionality are contained in the "common_files" directory:
+
+biasexchange.c  	: enables bias exchange (only GROMACS code) 
+dafed.c			: The driven adiabatic free energy (d-AFED) algorithm
+hills.c			: calculates the potential energy and the forces coming from Metadynamics 
+metadyn.c		: main driver for metadynamics calculation, steered MD and umbrella sampling
+metadyn.h		: defines structures, functions and global parameters 
+ptmetad.c		: enables metadynamics correction in the MC acceptance of parallel tempering (only GROMACS code) 
+read_restraint.c	: main parsing for input file
+restraint.c		: calculation of the collective variables implemented 
+restraint_*.c		: calculation and reading of the collective variables (see the manual)  
+testderivatives.c	: finite difference driver for testing the analytical derivatives of order parameters	
+
+INSTALLATION:
+see the INSTALL file in this directory
+
+HOW TO RUN THE TESTS (courtesy of Joost VandeVondele):
+see the README file in the tests/ directory

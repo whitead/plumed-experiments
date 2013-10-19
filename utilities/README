@@ -1,0 +1,26 @@
+In this directory we include some utilities: 
+
+1) driver: a tool to calculate on a given trajectory file the value 
+           of all the collective variables implemented in PLUMED;
+
+2) sum_hills: a small piece of code that sums the Gaussians deposited during 
+              a metadynamics simulation and returns back the free energy profile;
+
+3) standalone: to run plumed as a standalone program; 
+
+4) plumedat.sh: a script to parse the COLVAR file;
+
+5) reweight: a tool to calculate the unbiased probability distribution of variables
+             other than the CVs in well-tempered metadynamics simulations.
+
+6) python-interface: python interface to use plumed together with ASE (Atomic Simulation Environment).
+
+7) bias-exchange: a tool to perform bias-exchange simulations via the linux shell using every MD code.
+
+For instruction on how to compile or use a specific utility, please refer to the
+manual in the section "Postprocessing".
+
+For more informations, see:
+http://www.plumed-code.org/
+
+For any question, please subscribe to plumed-users@googlegroups.com

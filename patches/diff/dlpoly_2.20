@@ -1,0 +1,403 @@
+patch -c -l -b -F 3 --suffix=.preplumed "./srcmod/config_module.f" << \EOF_EOF
+*** ./srcmod/config_module.f.preplumed	2007-07-31 12:02:56.000000000 +0200
+--- ./srcmod/config_module.f	2010-02-05 10:45:28.901032110 +0100
+***************
+*** 37,42 ****
+--- 37,48 ----
+  
+        real(8), allocatable :: buffer(:)
+  
++ c PluMeD variables
++       logical, save :: lplumed  
++       character(len=20) :: plumedfile
++       character(len=80) :: parse_file
++ c end PluMeD variables
++ 
+        save atmnam,neulst,lstneu,cfgname,sysname
+        save cell,xxx,yyy,zzz,vxx,vyy,vzz,fxx,fyy,fzz
+        save buffer,weight,chge,ltype,lstfrz,flx,fly,flz
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./srcmod/dlpoly.f" << \EOF_EOF
+*** ./srcmod/dlpoly.f.preplumed	2009-01-19 16:17:29.000000000 +0100
+--- ./srcmod/dlpoly.f	2010-02-05 10:45:28.872419073 +0100
+***************
+*** 261,266 ****
+--- 261,281 ----
+          
+        endif
+        
++ c PluMeD modifications
++ 
++       if(lplumed)then
++         call init_metadyn
++      x (natms, tstep, weight, chge, imcon, engunit,
++      x  trim(plumedfile)//char(0))
++         if(idnode==0)then
++          write(nrite,'(/a22)' )"-- PLUMED ENABLED --  "
++          write(nrite,'(a22,a)')"   PLUMED INPUT FILE: ",trim(plumedfile)
++         endif
++         call flush(nrite)
++       endif
++ 
++ c PluMeD modifications
++ 
+  c     zero long range component of stress
+        
+        do i=1,9
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./srcmod/forces_module.f" << \EOF_EOF
+*** ./srcmod/forces_module.f.preplumed	2009-03-12 21:34:55.000000000 +0100
+--- ./srcmod/forces_module.f	2010-02-05 10:45:28.834035202 +0100
+***************
+*** 318,324 ****
+        
+        engcfg=engsrp+engcpe+engbnd+engang+engdih+engfld+engtbp+
+       x  engfbp+engshl+enginv+engter+engmet
+!       
+  c     total derivative of the configurational free energy
+        
+        if(lfree)then
+--- 318,331 ----
+        
+        engcfg=engsrp+engcpe+engbnd+engang+engdih+engfld+engtbp+
+       x  engfbp+engshl+enginv+engter+engmet
+!      
+! cPluMeD modifications
+! 
+!       if(lplumed) call meta_force_calculation
+!      x  (cell,nstep,xxx,yyy,zzz,fxx,fyy,fzz,engcfg)
+! 
+! c PluMeD modifications
+!  
+  c     total derivative of the configurational free energy
+        
+        if(lfree)then
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./srcmod/define_system_module.f" << \EOF_EOF
+*** ./srcmod/define_system_module.f.preplumed	2009-06-02 15:51:48.000000000 +0200
+--- ./srcmod/define_system_module.f	2010-02-05 10:45:28.977605009 +0100
+***************
+*** 233,238 ****
+--- 233,243 ----
+        lswitch=.false.
+        lghost=.false.
+        
++ c PluMeD defaults
++       lplumed   = .false.
++       plumedfile="plumed.dat"
++ c end PluMeD defaults
++ 
+  c     open the simulation input file
+        
+        if(idnode.eq.0)open(nread,file='CONTROL',status='old')
+***************
+*** 266,271 ****
+--- 271,290 ----
+          
+          if(record(1).eq.'#'.or.record(1).eq.' ')then
+  
++ c PluMeD modifications
++ 
++         elseif(findstring('plumed ',directive,idum)) then
++              if(findstring('on',directive,idum) ) lplumed=.true.
++              if(findstring('off',directive,idum)) lplumed=.false.
++ 
++         elseif(findstring('plumedfile',directive,idum)) then
++              do i=1,80
++                parse_file(i:i)=record(i)
++              enddo
++              read(parse_file,*)plumedfile,plumedfile
++ 
++ c end PluMeD modifications
++ 
+  c     record is commented out
+            
+          elseif(findstring('steps',directive,idum))then
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./build/MakeWIN" << \EOF_EOF
+*** ./build/MakeWIN.preplumed	2009-01-15 14:51:35.000000000 +0100
+--- ./build/MakeWIN	2010-02-05 10:47:16.131423304 +0100
+***************
+*** 7,12 ****
+--- 7,13 ----
+  
+  BINROOT = ../execute
+  CC  = gcc
++ CPP = g++
+  EX = DLPOLY.X
+  EXE = $(BINROOT)/$(EX)
+  FC=undefined
+***************
+*** 39,44 ****
+--- 40,51 ----
+  
+  OBJ_PAR = serial.o
+  
++ HEAD_METAD = Plumed/metadyn.h
++ 
++ include Plumed/plumed.inc
++ 
++ OBJ_METAD = $(PLUMED_OBJECTS) images.o
++ 
+  #=====================================================================
+  # Define targets
+  all:
+***************
+*** 65,72 ****
+  #=====================================================================
+  # Default code for Windows execution
+  
+! win: check $(OBJ_MOD) $(OBJ_PAR) $(OBJ_SRC)
+! 	$(LD) $(EX) $(LDFLAGS) $(OBJ_MOD) $(OBJ_PAR) $(OBJ_SRC)
+  	mv $(EX) $(EXE)
+  
+  #=====================================================================
+--- 72,79 ----
+  #=====================================================================
+  # Default code for Windows execution
+  
+! win: check $(OBJ_MOD) $(OBJ_PAR) $(OBJ_METAD) $(OBJ_RECON) $(OBJ_SRC)
+! 	$(LD) $(EX) $(LDFLAGS) $(OBJ_MOD) $(OBJ_PAR) $(OBJ_METAD) $(OBJ_RECON) $(RECON_LIBS) $(OBJ_SRC)
+  	mv $(EX) $(EXE)
+  
+  #=====================================================================
+***************
+*** 80,95 ****
+  #=====================================================================
+  # Clean up the source directory
+  clean:
+! 	rm -f $(OBJ_MOD) $(OBJ_PAR) $(OBJ_SRC) *.mod
+  
+  #=====================================================================
+  # Declare dependencies
+  .f.o: 
+  	$(FC) $(FFLAGS) $*.f
+! .c.o: 
+! 	$(CC) -c $*.c
+  
+  #=====================================================================
+  # Declare dependency on module files
+  
+  $(OBJ_SRC): $(OBJ_MOD)
+--- 87,112 ----
+  #=====================================================================
+  # Clean up the source directory
+  clean:
+! 	rm -f $(OBJ_MOD) $(OBJ_PAR) $(OBJ_METAD) $(OBJ_RECON) $(OBJ_SRC) *.mod
+  
+  #=====================================================================
+  # Declare dependencies
+  .f.o: 
+  	$(FC) $(FFLAGS) $*.f
+! 
+! .c.o: $(HEAD_METAD)
+! 	$(CC) -DDL_POLY $(RECON_FLAGS) -c $(CFLAGS) $< -o $@
+! 
+! %.o: %.cpp $(HEAD_RECON)
+! 	$(CPP) -c $(RECON_FLAGS) $(CFLAGS) $< -o $@
+  
+  #=====================================================================
+  # Declare dependency on module files
+  
+  $(OBJ_SRC): $(OBJ_MOD)
++ 
++ #=====================================================================
++ # Declare dependency for C header files
++ 
++ $(OBJ_METAD): $(HEAD_METAD)
++ $(OBJ_RECON): $(HEAD_RECON)
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./build/MakeSEQ" << \EOF_EOF
+*** ./build/MakeSEQ.preplumed	2009-03-05 11:32:41.000000000 +0100
+--- ./build/MakeSEQ	2010-02-05 10:46:43.848952293 +0100
+***************
+*** 7,12 ****
+--- 7,13 ----
+  
+  BINROOT = ../execute
+  CC  = gcc
++ CPP = g++
+  EX = DLPOLY.X
+  EXE = $(BINROOT)/$(EX)
+  FC=undefined
+***************
+*** 39,44 ****
+--- 40,51 ----
+  
+  OBJ_PAR = serial.o
+  
++ HEAD_METAD = Plumed/metadyn.h
++ 
++ include Plumed/plumed.inc
++ 
++ OBJ_METAD = $(PLUMED_OBJECTS) images.o
++ 
+  #=====================================================================
+  # Define targets
+  all:
+***************
+*** 192,199 ****
+  #=====================================================================
+  # Default code for sequential execution
+  
+! seq: check $(OBJ_MOD) $(OBJ_PAR) $(OBJ_SRC)
+! 	$(LD) $(EX) $(LDFLAGS) $(OBJ_MOD) $(OBJ_PAR) $(OBJ_SRC)
+  	mv $(EX) $(EXE)
+  
+  #=====================================================================
+--- 199,206 ----
+  #=====================================================================
+  # Default code for sequential execution
+  
+! seq: check $(OBJ_MOD) $(OBJ_PAR) $(OBJ_METAD) $(OBJ_RECON) $(OBJ_SRC)
+! 	$(LD) $(EX) $(LDFLAGS) $(OBJ_MOD) $(OBJ_PAR) $(OBJ_METAD) $(OBJ_RECON) $(RECON_LIBS) $(OBJ_SRC)
+  	mv $(EX) $(EXE)
+  
+  #=====================================================================
+***************
+*** 207,222 ****
+  #=====================================================================
+  # Clean up the source directory
+  clean:
+! 	rm -f $(OBJ_MOD) $(OBJ_PAR) $(OBJ_SRC) *.mod
+  
+  #=====================================================================
+  # Declare dependencies
+  .f.o: 
+  	$(FC) $(FFLAGS) $*.f
+! .c.o: 
+! 	$(CC) -c $*.c
+  
+  #=====================================================================
+  # Declare dependency on module files
+  
+  $(OBJ_SRC): $(OBJ_MOD)
+--- 214,239 ----
+  #=====================================================================
+  # Clean up the source directory
+  clean:
+! 	rm -f $(OBJ_MOD) $(OBJ_PAR) $(OBJ_METAD) $(OBJ_RECON) $(OBJ_SRC) *.mod
+  
+  #=====================================================================
+  # Declare dependencies
+  .f.o: 
+  	$(FC) $(FFLAGS) $*.f
+! 
+! .c.o: $(HEAD_METAD)
+! 	$(CC) -DDL_POLY $(RECON_FLAGS) -c $(CFLAGS) $< -o $@
+! 
+! %.o: %.cpp $(HEAD_RECON)
+! 	$(CPP) -c $(CFLAGS) $(RECON_FLAGS) $< -o $@
+  
+  #=====================================================================
+  # Declare dependency on module files
+  
+  $(OBJ_SRC): $(OBJ_MOD)
++ 
++ #=====================================================================
++ # Declare dependency for C header files
++ 
++ $(OBJ_METAD): $(HEAD_METAD)
++ $(OBJ_RECON): $(HEAD_RECON)
+EOF_EOF
+patch -c -l -b -F 3 --suffix=.preplumed "./build/MakePAR" << \EOF_EOF
+*** ./build/MakePAR.preplumed	2009-01-15 14:51:35.000000000 +0100
+--- ./build/MakePAR	2010-02-05 10:46:16.799246310 +0100
+***************
+*** 6,12 ****
+  #=======================================================================
+  
+  BINROOT = ../execute
+! CC  = gcc
+  EX = DLPOLY.X
+  EXE = $(BINROOT)/$(EX)
+  FC=undefined
+--- 6,13 ----
+  #=======================================================================
+  
+  BINROOT = ../execute
+! CC  = mpicc
+! CPP = mpicxx
+  EX = DLPOLY.X
+  EXE = $(BINROOT)/$(EX)
+  FC=undefined
+***************
+*** 39,44 ****
+--- 40,51 ----
+  
+  OBJ_PAR = basic_comms.o merge_tools.o pass_tools.o
+  
++ HEAD_METAD = Plumed/metadyn.h
++ 
++ include Plumed/plumed.inc
++ 
++ OBJ_METAD = $(PLUMED_OBJECTS) images.o
++ 
+  #=====================================================================
+  # Define targets
+  all:
+***************
+*** 127,134 ****
+  #=====================================================================
+  # Default code for parallel (MPI) execution
+  
+! par: check $(OBJ_MOD) $(OBJ_PAR) $(OBJ_SRC)
+! 	$(LD) $(EX) $(LDFLAGS) $(OBJ_MOD) $(OBJ_PAR) $(OBJ_SRC)
+  	mv $(EX) $(EXE)
+  
+  #=====================================================================
+--- 134,141 ----
+  #=====================================================================
+  # Default code for parallel (MPI) execution
+  
+! par: check $(OBJ_MOD) $(OBJ_PAR) $(OBJ_METAD) $(OBJ_RECON) $(OBJ_SRC)
+! 	$(LD) $(EX) $(LDFLAGS) $(OBJ_MOD) $(OBJ_PAR) $(OBJ_METAD) $(OBJ_RECON) $(RECON_LIBS) $(OBJ_SRC)
+  	mv $(EX) $(EXE)
+  
+  #=====================================================================
+***************
+*** 142,157 ****
+  #=====================================================================
+  # Clean up the source directory
+  clean:
+! 	rm -f $(OBJ_MOD) $(OBJ_PAR) $(OBJ_SRC) *.mod
+  
+  #=====================================================================
+  # Declare dependencies
+  .f.o: 
+  	$(FC) $(FFLAGS) $*.f
+! .c.o: 
+! 	$(CC) -c $*.c
+  
+  #=====================================================================
+  # Declare dependency on module files
+  
+  $(OBJ_SRC): $(OBJ_MOD)
+--- 149,174 ----
+  #=====================================================================
+  # Clean up the source directory
+  clean:
+! 	rm -f $(OBJ_MOD) $(OBJ_PAR) $(OBJ_METAD) $(OBJ_RECON) $(OBJ_SRC) *.mod
+  
+  #=====================================================================
+  # Declare dependencies
+  .f.o: 
+  	$(FC) $(FFLAGS) $*.f
+! 
+! .c.o: $(HEAD_METAD) 
+! 	$(CC) -DDL_POLY $(RECON_FLAGS) -DMPI -c $(CFLAGS) $< -o $@
+! 
+! %.o: %.cpp $(HEAD_RECON) 
+! 	$(CPP) -DMPI $(RECON_FLAGS) -c $(CFLAGS) $< -o $@
+  
+  #=====================================================================
+  # Declare dependency on module files
+  
+  $(OBJ_SRC): $(OBJ_MOD)
++ 
++ #=====================================================================
++ # Declare dependency for C header files
++ 
++ $(OBJ_METAD): $(HEAD_METAD)
++ $(OBJ_RECON): $(HEAD_RECON)
+EOF_EOF
