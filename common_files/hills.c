@@ -443,7 +443,7 @@ real PREFIX hills_engine(real* ss0,real* force){
           for (icv=0; icv<ncv; icv++) if(colvar.on[icv]) {
             if (hills.mcgdp_reshape_flag[icv] == 1) {
               erf_index = (ss0[icv] - hills.hill_lower_bounds[icv])/(hills.hill_upper_bounds[icv]-hills.hill_lower_bounds[icv]) * GTAB;
-              mcgdp_VHillDenom *= hills.erf[erf_index][icv];
+              mcgdp_VHillDenom *= hills.erf[erf_index][icv] / 2.0;
             }
           }
           VhillsLast /= mcgdp_VHillDenom;
@@ -907,7 +907,7 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
         for (j = 0; j < ncv; j++) if(colvar.on[j]) {
           if (hills.mcgdp_reshape_flag[j] == 1) {
             erf_index = (xx[j] - hills.hill_lower_bounds[j])/(hills.hill_upper_bounds[j]-hills.hill_lower_bounds[j]) * GTAB;
-            mcgdp_VHillDenom *= hills.erf[erf_index][j];
+            mcgdp_VHillDenom *= hills.erf[erf_index][j] / 2.0;
           }
         }
         expo /= mcgdp_VHillDenom;
