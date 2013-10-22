@@ -441,8 +441,10 @@ real PREFIX hills_engine(real* ss0,real* force){
         if (logical.mcgdp_hills) {
           mcgdp_VHillDenom = 1.0;
           for (icv=0; icv<ncv; icv++) if(colvar.on[icv]) {
-            erf_index = (ss0[icv] - hills.hill_lower_bounds[icv])/(hills.hill_upper_bounds[icv]-hills.hill_lower_bounds[icv]) * GTAB;
-            mcgdp_VHillDenom *= hills.erf[erf_index][icv];
+            if (hills.mcgdp_reshape_flag[icv] == 1) {
+              erf_index = (ss0[icv] - hills.hill_lower_bounds[icv])/(hills.hill_upper_bounds[icv]-hills.hill_lower_bounds[icv]) * GTAB;
+              mcgdp_VHillDenom *= hills.erf[erf_index][icv];
+            }
           }
           VhillsLast /= mcgdp_VHillDenom;
         }
@@ -458,7 +460,7 @@ real PREFIX hills_engine(real* ss0,real* force){
           // derivatives of the numerator and denominator into separate
           // terms, results in one normal-looking but rescaled Gaussian 
           // force and one more complex boundary correction term.
-          } else if (logical.mcgdp_hills) {
+          } else if (logical.mcgdp_hills && hills.mcgdp_reshape_flag[icv]) {
             // Compute how large the hill is where it hits the lower bound
             lbound_exp_argument = (ss0[icv] - hills.hill_lower_bounds[icv]) * (ss0[icv] - hills.hill_lower_bounds[icv])/(2 * colvar.delta_s[ih][icv] * colvar.delta_s[ih][icv]);
             if (lbound_exp_argument < DP2CUTOFF) {
@@ -903,8 +905,10 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
       if (logical.mcgdp_hills) {
         mcgdp_VHillDenom = 1.0;
         for (j = 0; j < ncv; j++) if(colvar.on[j]) {
-          erf_index = (xx[j] - hills.hill_lower_bounds[j])/(hills.hill_upper_bounds[j]-hills.hill_lower_bounds[j]) * GTAB;
-          mcgdp_VHillDenom *= hills.erf[erf_index][j];
+          if (hills.mcgdp_reshape_flag[j] == 1) {
+            erf_index = (xx[j] - hills.hill_lower_bounds[j])/(hills.hill_upper_bounds[j]-hills.hill_lower_bounds[j]) * GTAB;
+            mcgdp_VHillDenom *= hills.erf[erf_index][j];
+          }
         }
         expo /= mcgdp_VHillDenom;
       }
@@ -931,30 +935,32 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
       // so this only calculates the denominator term.
       if (logical.mcgdp_hills) {
         for(j = 0; j < ncv; j++) {
-          // Compute how large the hill is where it hits the lower bound
-          lbound_exp_argument = (xx[j] - hills.hill_lower_bounds[j]) * (xx[j] - hills.hill_lower_bounds[j])/(2 * delta[grid->index[j]] * delta[grid->index[j]]);
-          if (lbound_exp_argument < DP2CUTOFF) {
-             lbound_exp_index = lbound_exp_argument * GTAB / DP2CUTOFF;
-                lbound_gaussian = hills.exp[lbound_exp_index];
-          } else {
-            lbound_gaussian = 0;
+          if (hills.mcgdp_reshape_flag[j] == 1) {
+            // Compute how large the hill is where it hits the lower bound
+            lbound_exp_argument = (xx[j] - hills.hill_lower_bounds[j]) * (xx[j] - hills.hill_lower_bounds[j])/(2 * delta[grid->index[j]] * delta[grid->index[j]]);
+            if (lbound_exp_argument < DP2CUTOFF) {
+              lbound_exp_index = lbound_exp_argument * GTAB / DP2CUTOFF;
+              lbound_gaussian = hills.exp[lbound_exp_index];
+            } else {
+              lbound_gaussian = 0;
+            }
+            // Compute how large the hill is where it hits the upper bound
+            ubound_exp_argument = (hills.hill_upper_bounds[j] - xx[j]) * (hills.hill_upper_bounds[j] - xx[j])/(2 * delta[grid->index[j]] * delta[grid->index[j]]);
+            if (ubound_exp_argument < DP2CUTOFF) {
+              ubound_exp_index = ubound_exp_argument * GTAB / DP2CUTOFF;
+              ubound_gaussian = hills.exp[ubound_exp_index];
+            } else {
+              ubound_gaussian = 0;
+            }
+            // Compute the term corresponding to taking the derivative of the
+            // hill function's denominator
+            if (lbound_gaussian > 0 || ubound_gaussian > 0) {
+              mcdgp_force_correction = M_sqrt2oPI * (lbound_gaussian - ubound_gaussian) * expo / hills.erf[erf_index][j] * delta[grid->index[j]];
+            } else {
+              mcdgp_force_correction = 0;
+            }
+            pot_for_para[i * (ncv + 1) + 1 + j] += mcdgp_force_correction;
           }
-          // Compute how large the hill is where it hits the upper bound
-          ubound_exp_argument = (hills.hill_upper_bounds[j] - xx[j]) * (hills.hill_upper_bounds[j] - xx[j])/(2 * delta[grid->index[j]] * delta[grid->index[j]]);
-          if (ubound_exp_argument < DP2CUTOFF) {
-            ubound_exp_index = ubound_exp_argument * GTAB / DP2CUTOFF;
-            ubound_gaussian = hills.exp[ubound_exp_index];
-          } else {
-            ubound_gaussian = 0;
-          }
-          // Compute the term corresponding to taking the derivative of the
-          // hill function's denominator
-          if (lbound_gaussian > 0 || ubound_gaussian > 0) {
-            mcdgp_force_correction = M_sqrt2oPI * (lbound_gaussian - ubound_gaussian) * expo / hills.erf[erf_index][j] * delta[grid->index[j]];
-          } else {
-            mcdgp_force_correction = 0;
-          }
-          pot_for_para[i * (ncv + 1) + 1 + j] += mcdgp_force_correction;
         }
       }
       // <JFD

@@ -1285,9 +1285,11 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
     if (logical.mcgdp_hills) {
       long int cv_index;
       for(cv_index = 0; cv_index < colvar.nconst; cv_index++) {
-        for(j = 0; j <= GTAB; j++) {
-          k = (real) (hills.hill_upper_bounds[cv_index] - hills.hill_lower_bounds[cv_index]) / (GTAB * M_sqrt2 * colvar.delta_r[cv_index]) * j;
-          hills.erf[j][cv_index] = erf(k) + erf((hills.hill_upper_bounds[cv_index] - hills.hill_lower_bounds[cv_index]) / (M_sqrt2 * colvar.delta_r[cv_index]) - k);
+        if (hills.mcgdp_reshape_flag[cv] == 1) {
+          for(j = 0; j <= GTAB; j++) {
+            k = (real) (hills.hill_upper_bounds[cv_index] - hills.hill_lower_bounds[cv_index]) / (GTAB * M_sqrt2 * colvar.delta_r[cv_index]) * j;
+            hills.erf[j][cv_index] = erf(k) + erf((hills.hill_upper_bounds[cv_index] - hills.hill_lower_bounds[cv_index]) / (M_sqrt2 * colvar.delta_r[cv_index]) - k);
+          }
         }
       }
     }

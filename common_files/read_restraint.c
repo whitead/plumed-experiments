@@ -38,11 +38,6 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 {
   double uno, due, tre, quattro;
   int i, j, icv, count, iw, nw, ix, iline, tmpc;
-  // JFD>
-  // This count is used to ensure that McGovern-de Pablo 
-  // hills have necessary information for all the CVs.
-  int mcgdp_count;
-  // <JFD
   FILE *file;
   char metafile[120], **word, tmpmeta[120];
 
@@ -104,9 +99,6 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 // CV counter initialization and calling routine to set the default values for many variables
   count = 0;
   iline = 0;
-  // JFD>
-  mcgdp_count = 0;
-  // <JFD
   read_defaults();
 
 // Initialize everything for reconnaissance metadynamics
@@ -795,13 +787,13 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
       int read_lower_bound=0;
       int read_upper_bound=0;
       logical.mcgdp_hills=1;
-// first we select the proper CV
+      // first we select the proper CV
       iw = seek_word(word,"CV");
       if(iw>=0){ sscanf(word[iw+1], "%i", &icv);}
       else{plumed_error("WITH MCGDP_HILLS YOU ALWAYS HAVE TO SPECIFY THE \"CV\" KEYWORD\n");}
-      mcgdp_count++;
-// then we parse the line
-      logical.upper[icv-1]=1;
+      hills.mcgdp_reshape_flag[icv - 1] = 1;
+      // then we parse the line
+      logical.upper[icv-1] = 1;
       logical.do_walls = 1;   // ### For modified output format
       for(iw=1;iw<nw;iw++){
         if(!strcmp(word[iw],"CV")) {
@@ -1384,7 +1376,6 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
   if(logical.ttdebug && !logical.transition_tempering)  plumed_error("DEBUG_TRANSITIONTEMPERED must be used with TRANSITIONTEMPERED keyword");
   if(logical.mcgdp_hills && !logical.do_hills)  plumed_error("MCGDP_HILLS must be used with HILLS keyword");
   if(logical.mcgdp_hills && !logical.do_grid)  plumed_error("MCGDP_HILLS must be used with GRID keyword");
-  if(logical.mcgdp_hills && (count != mcgdp_count))  plumed_error("MCGDP_HILLS must be used for all CVs or none");
   // <JFD
 
   if(logical.commit && logical.do_hills) plumed_error("KEYWORD 'COMMITMENT' AND 'HILLS' ARE NOT COMPATIBLE");
@@ -1667,6 +1658,9 @@ void PREFIX read_defaults()
     grid.period[icv]            = 0;
     grid.index[icv]             = 0;
     grid.oldelta[icv]           = 0.;
+    // JFD>
+    hills.mcgdp_reshape_flag[icv] = 0;
+    // <JFD
     cvsteer.slope[icv]          = 0.;
     cvsteer.annealing[icv]      = 0;
     stopwhen.actmin[icv]        = 0;

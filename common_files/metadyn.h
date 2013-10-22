@@ -527,6 +527,7 @@ struct hills_s
   real   Vhills;					// Hills potential
   // JFD>
   // Extra information for depositing McGovern-de Pablo hills
+  int mcgdp_reshape_flag[nconst_max];
   real hill_upper_bounds[nconst_max];
   real hill_lower_bounds[nconst_max];
   real n_hills_near_lower_bound;
