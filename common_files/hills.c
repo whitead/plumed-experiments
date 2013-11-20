@@ -292,6 +292,16 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     this_ww *= exp(-transition_bias_ND()/(mtd_data->boltz*(colvar.ttfactor-1.0)*colvar.simtemp));
   }
   // <JFD
+  // ADW>
+  if(logical.target_distribution) {
+    //NO units of kT since this comes from entropy, not energy
+    this_ww *= exp(grid_getstuff(target_grid, colvar.ss0, NULL));
+    this_ww = min(hills.wwr, this_ww);
+  }
+  
+  // <ADW
+
+  
   for(icv=0;icv<ncv;icv++) this_ss[icv]    = colvar.ss0[icv];    	// new hill center
   for(icv=0;icv<ncv;icv++) this_delta[icv] = colvar.delta_r[icv];       // new hill width
 

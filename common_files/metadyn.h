@@ -371,6 +371,9 @@ struct logical_s
   int    ttdebug;
   int    mcgdp_hills;          // Use the McGovern-de Pablo boundary consistent hills.
   // <JFD
+  //ADW>
+  int    target_distribution; //do target distribution metadynamisc
+  // <ADW
   int    lreflect[nconst_max];
   int    ureflect[nconst_max];
   int    debug;
@@ -1593,6 +1596,8 @@ void point_to_matrix(int i,struct sz_data *my_sz);
     MYEXT struct sprint_data_s sprint_data;
 // external potential
     MYEXT struct grid_s     extpot;
+//target distribution, if being used
+    MYEXT struct grid_s    target_grid;
 // camshift stuff
     MYEXT struct cam_shift_s cam_shift;
 // stopwhen stuff

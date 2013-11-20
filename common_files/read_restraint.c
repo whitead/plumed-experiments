@@ -555,7 +555,18 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
       if(logical.read_old_bf) fprintf(mtd_data->fplog, "|--READING OLD BIASFACTOR WHEN RESTARTING \n");
       fprintf(mtd_data->fplog, "\n");
   // <JFD
-  } else if(!strcmp(word[0],"DEBUG_TRANSITIONTEMPERED")){
+  // ADW>
+    }else if(!strcmp(word[0],"TARGET_DISTRIBUTION")) {
+      logical.target_distribution = 1;
+      fprintf(mtd_data->fplog,"Enabling target distribution metadynamics\n");
+      for(iw=1;iw<nw;iw++){
+        if(!strcmp(word[iw],"FILENAME")){
+          iw++; 
+	  sscanf(word[iw], "%s", target_grid.r_file);
+        }
+      }
+      // <ADW
+    } else if(!strcmp(word[0],"DEBUG_TRANSITIONTEMPERED")){
       logical.ttdebug=1;
       for(iw=1;iw<nw;iw++){
         if(!strcmp(word[iw],"FILENAME")){
