@@ -530,7 +530,7 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
           read_wells++;
         } else if(!strcmp(word[iw],"THRESHOLD")){
           iw++; sscanf(word[iw], "%lf", &uno);
-          colvar.ttthreshold = (real) uno;
+          colvar.ttthreshold = mtd_data->boltz * (real) uno;
         } else if(!strcmp(word[iw],"READ_OLD_BF")){
           logical.read_old_bf = 1;
         } else {

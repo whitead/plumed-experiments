@@ -1267,6 +1267,7 @@ extern "C" {
 
  // Lattice-point data array routines
  lattice_array *make_lattice_array(lattice *lat);
+ lattice_array *make_const_lattice_array(lattice *lat);
  void free_lattice_array(lattice_array *lat_arr);
  void free_const_lattice_array(lattice_array *lat_arr);
  void set_lattice_array(lattice_array *lat_arr, double *vals);
