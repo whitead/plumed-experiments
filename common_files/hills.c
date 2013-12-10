@@ -294,8 +294,8 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
   // <JFD
   // ADW>
   if(logical.target_distribution) {
-    //NO units of kT since this comes from entropy, not energy
-    this_ww *= exp(grid_getstuff(target_grid, colvar.ss0, NULL));
+    //NO units of kT since this comes from entropy, not energy    
+    this_ww *= exp(grid_getstuff(&target_grid, colvar.ss0,  NULL));
     this_ww = min(hills.wwr, this_ww);
   }
   
