@@ -129,22 +129,25 @@ class Grid:
         from pylab import imread, imshow, gray, mean
         a = imread(filename) # read to RGB file
         gray_scale = mean(a,2) # convert to grayscale
+        if(np.shape(gray_scale)[0] != self.nbins[0] or np.shape(gray_scale)[1] != self.nbins[1]):
+            raise ValueError("Your image must be exactly the same number of pixels as your bin number: {}".format(self.nbins))
+
+        if(self.pot is None):
+            self.pot = np.zeros(self.nbins)
         for i in range(np.shape(gray_scale)[0]):
             for j in range(np.shape(gray_scale)[1]):
-                self.add_value([i * self.nbins[0] / float(np.shape(gray_scale)[0]) + self.min[0], 
-                                j * self.nbins[1] / float(np.shape(gray_scale)[1]) + self.min[1]], 
-                               gray_scale[i,j])
+                self.pot[i,j] += gray_scale[i,j]
                                 
                                 
 
 def test():
     import sys
     g = Grid()
-    g.add_cv("Distance", 1, 0, 16, True)
-    g.add_cv("Distance", 1, 0, 16, True)
+    g.add_cv("Distance", 0.5, 0, 16, True)
+    g.add_cv("Distance", 0.5, 0, 16, True)
     g.add_png_to_grid("circle.png")
     import os
     g.write(sys.stdout)
 #    g.write(open(os.devnull, 'w'))
 
-#test()
+test()
