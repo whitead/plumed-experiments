@@ -1,4 +1,4 @@
-from math import ceil, floor
+from math import ceil, floor, log
 import numpy as np
 import copy
 
@@ -75,8 +75,27 @@ class Grid:
             index[i] = max(0, min(self.nbins[i] - 1, int(floor( (xi - self.min[i]) / self.dx[i]) )))
         self.pot[tuple(index)] += v
 
+    def set_value(self, x, v):
+        if(self.pot is None):
+            self.pot = np.zeros(self.nbins)
+        if(len(x) != self.ncv):
+            raise ValueError("Dimension of given x vector does not match grid dimension!")
+        index = [0 for xi in x]
+        for i, xi in enumerate(x):
+            assert xi >= self.min[i] and xi <= self.max[i],"Mesh point is not within grid dimension {}: {}, [{}, {}]".format(i, xi, self.min[i], self.max[i])
+            index[i] = max(0, min(self.nbins[i] - 1, int(floor( (xi - self.min[i]) / self.dx[i]) )))
+        self.pot[tuple(index)] = v
+
             
-            
+    def get_value(self, x, v):
+        if(self.pot is None):
+            self.pot = np.zeros(self.nbins)
+        index = [0 for xi in x]
+        for i, xi in enumerate(x):
+            assert xi >= self.min[i] and xi <= self.max[i],"Mesh point is not within grid dimension {}: {}, [{}, {}]".format(i, xi, self.min[i], self.max[i])
+            index[i] = max(0, min(self.nbins[i] - 1, int(floor( (xi - self.min[i]) / self.dx[i]) )))
+        return self.pot[tuple(index)]
+
 
     def _print_header_array(self, name, array, output):
         output.write('#! {} '.format(name))
@@ -89,7 +108,6 @@ class Grid:
         array_copy = copy.copy(array)
         array_copy.insert(0, element)
         return array_copy
-
         
     def _enumerate_grid(self, fxn, dim=None, indices=[]):
         if(dim is None):
@@ -108,17 +126,23 @@ class Grid:
         for i,j in enumerate(indices):
             output.write('{0:05} '.format(j * self.dx[i] + self.min[i]))        
         output.write('{0:05}\n'.format(self.pot[tuple(indices)]))
-
-
             
 
     def write(self, output):
         output.write('#! FORCE 0\n')
         output.write('#! NVAR {}\n'.format(self.ncv))
         self._print_header_array('TYPE', self.types, output)
-        self._print_header_array('BIN', self.nbins, output)
+
+        #Some kind of weird Plumed convention
+        mod_bins = copy.copy(self.nbins)        
+        mod_max = copy.copy(self.max)
+        for i,p in enumerate(self.periodic):
+            mod_bins[i] -= 1 if p else 0
+            mod_max[i] -= dx[i] if p else 0                
+
+        self._print_header_array('BIN', mod_bins, output)
         self._print_header_array('MIN', self.min, output)
-        self._print_header_array('MAX', self.max, output)
+        self._print_header_array('MAX', mod_max, output)
         self._print_header_array('PBC', [0 if x else 1 for x in self.periodic], output)
         self._enumerate_grid(lambda x: self._print_grid(x, output))
         
@@ -129,6 +153,7 @@ class Grid:
         from pylab import imread, imshow, gray, mean
         a = imread(filename) # read to RGB file
         gray_scale = mean(a,2) # convert to grayscale
+        csum = np.sum(gray_scale)        
         if(np.shape(gray_scale)[0] != self.nbins[0] or np.shape(gray_scale)[1] != self.nbins[1]):
             raise ValueError("Your image must be exactly the same number of pixels as your bin number: {}".format(self.nbins))
 
@@ -136,9 +161,8 @@ class Grid:
             self.pot = np.zeros(self.nbins)
         for i in range(np.shape(gray_scale)[0]):
             for j in range(np.shape(gray_scale)[1]):
-                self.pot[i,j] += gray_scale[i,j]
-                                
-                                
+                self.pot[i,j] += log(gray_scale[i,j]) - log(csum)
+                                                                
 
 def test():
     import sys
@@ -146,8 +170,7 @@ def test():
     g.add_cv("Distance", 0.5, 0, 16, True)
     g.add_cv("Distance", 0.5, 0, 16, True)
     g.add_png_to_grid("circle.png")
-    import os
     g.write(sys.stdout)
-#    g.write(open(os.devnull, 'w'))
 
-test()
+if __name__ == "__main__":
+    test()
