@@ -1256,10 +1256,24 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
     fflush(mtd_data.fplog);
 #endif
   if(logical.do_external) grid_read_fromfile(&extpot, 0);    // reading external potential from file
-  if(logical.target_distribution) {
-    fprintf(stderr, "About to read target_grid\n");
-    grid_read_fromfile(&target_grid, 0);    // reading external potential from file
+  // ADW>
+  if(logical.target_distribution) {    
+    fprintf(stderr, "About to read target_grid\n");    
+    if(!logical.do_grid) plumed_error("You must use a grid (see GRID keyword) to perform targted\n");
+    
+    //copy over a few things from grid, which are compared with the target grid. 
+    target_grid.ncv = grid.ncv;
+    for(i = 0; i < grid.ncv; i++) {
+      target_grid.index[i] = grid.index[i];
+      target_grid.bin[i] = grid.bin[i];
+      target_grid.min[i] = grid.min[i];
+      target_grid.max[i] = grid.max[i];
+      target_grid.period[i] = grid.period[i];
+    }
+    
+    grid_read_fromfile(&target_grid, 0);
   }
+  // <ADW
   if(logical.do_hills){
     hills.ntothills = STACKDIM ;// dimesion of hills vector
     hills.ss0_t     = float_2d_array_alloc(hills.ntothills,colvar.nconst); 
