@@ -297,7 +297,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     //NO units of kT since this comes from entropy, not energy    
     this_ww /= exp(grid_getstuff(&target_grid, colvar.ss0,  NULL));
     if(logical.welltemp)//to prevent very large hills
-      this_ww = min(hills.wwr, this_ww);
+      this_ww = fmin(hills.wwr, this_ww);
   }
   
   // <ADW
