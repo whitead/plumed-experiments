@@ -1258,7 +1258,6 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
   if(logical.do_external) grid_read_fromfile(&extpot, 0);    // reading external potential from file
   // ADW>
   if(logical.target_distribution) {    
-    fprintf(stderr, "About to read target_grid\n");    
     if(!logical.do_grid) plumed_error("You must use a grid (see GRID keyword) to perform targted\n");
     
     //copy over a few things from grid, which are compared with the target grid. 

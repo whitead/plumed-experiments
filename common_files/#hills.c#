@@ -295,9 +295,8 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
   // ADW>
   if(logical.target_distribution) {
     //NO units of kT since this comes from entropy, not energy    
-    this_ww /= exp(grid_getstuff(&target_grid, colvar.ss0,  NULL));
-    if(logical.welltemp)//to prevent very large hills
-      this_ww = fmin(hills.wwr, this_ww);
+    this_ww *= exp(grid_getstuff(&target_grid, colvar.ss0,  NULL));
+    this_ww = min(hills.wwr, this_ww);
   }
   
   // <ADW
@@ -310,6 +309,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
   last_hill_at_this_step=colvar.it;
 
   
+
 // add hill to the array
   if(! (logical.remd && colvar.ptmetad_neighbours>0) ) hills_push(mtd_data,this_ww,this_ss,this_delta);
 
