@@ -1161,13 +1161,13 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
         if(!strcmp(word[iw],"CV")){
           iw++; sscanf(word[iw], "%i", &icv);  read_cv=1;
         } else if(!strcmp(word[iw],"MIN")){
-          iw++; sscanf(word[iw], "%s", tmpmeta); uno = plumed_atof(tmpmeta); grid.min[grid.ncv] = (real) uno; read_min=1;
+          iw++; sscanf(word[iw], "%s", tmpmeta); uno = plumed_atof(tmpmeta); bias_grid.min[bias_grid.ncv] = (real) uno; read_min=1;
         } else if(!strcmp(word[iw],"MAX")){
-          iw++; sscanf(word[iw], "%s", tmpmeta); due = plumed_atof(tmpmeta); grid.max[grid.ncv] = (real) due; read_max=1;
+          iw++; sscanf(word[iw], "%s", tmpmeta); due = plumed_atof(tmpmeta); bias_grid.max[bias_grid.ncv] = (real) due; read_max=1;
         } else if(!strcmp(word[iw],"NBIN")){
-          iw++; sscanf(word[iw], "%i", &(grid.bin[grid.ncv])); read_nbin=1;
+          iw++; sscanf(word[iw], "%i", &(bias_grid.bin[bias_grid.ncv])); read_nbin=1;
         } else if(!strcmp(word[iw],"PBC")){
-          grid.period[grid.ncv] = 1;
+          bias_grid.period[bias_grid.ncv] = 1;
         } else {
           plumed_error("Unknown flag for keyword GRID");
         }
@@ -1176,32 +1176,32 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
       if(!read_min) plumed_error("WITH GRID YOU ALWAYS HAVE TO SPECIFY THE \"MIN\" KEYWORD\n");
       if(!read_max) plumed_error("WITH GRID YOU ALWAYS HAVE TO SPECIFY THE \"MAX\" KEYWORD\n");
       if(!read_nbin) plumed_error("WITH GRID YOU ALWAYS HAVE TO SPECIFY THE \"NBIN\" KEYWORD\n");
-      fprintf(mtd_data->fplog, "|-GRID ACTIVE ON CV %i NBIN %d MIN %f MAX %f \n", icv, grid.bin[grid.ncv],grid.min[grid.ncv],grid.max[grid.ncv]);
-      if(grid.period[grid.ncv]) fprintf(mtd_data->fplog, "|-- PERIODIC GRID IS ON\n");
-      grid.index[grid.ncv] = icv-1;
-      for(i=0;i<grid.ncv;i++) if(grid.index[i]==grid.index[grid.ncv]) plumed_error("GRID is already ACTIVE for this CV");
-      grid.ncv += 1;
+      fprintf(mtd_data->fplog, "|-GRID ACTIVE ON CV %i NBIN %d MIN %f MAX %f \n", icv, bias_grid.bin[bias_grid.ncv],bias_grid.min[bias_grid.ncv],bias_grid.max[bias_grid.ncv]);
+      if(bias_grid.period[bias_grid.ncv]) fprintf(mtd_data->fplog, "|-- PERIODIC GRID IS ON\n");
+      bias_grid.index[bias_grid.ncv] = icv-1;
+      for(i=0;i<bias_grid.ncv;i++) if(bias_grid.index[i]==bias_grid.index[bias_grid.ncv]) plumed_error("GRID is already ACTIVE for this CV");
+      bias_grid.ncv += 1;
       logical.do_grid = 1;
       fprintf(mtd_data->fplog, "\n");
     } else if(!strcmp(word[0],"WRITE_GRID")){
       logical.write_grid=1;
       for(iw=1;iw<nw;iw++){
         if(!strcmp(word[iw],"W_STRIDE")){
-          iw++; sscanf(word[iw], "%i", &(grid.w_stride));
+          iw++; sscanf(word[iw], "%i", &(bias_grid.w_stride));
         } else if(!strcmp(word[iw],"FILENAME")){
-          iw++; sscanf(word[iw], "%s", grid.w_file);
+          iw++; sscanf(word[iw], "%s", bias_grid.w_file);
         }
       };
       fprintf(mtd_data->fplog, "|-WRITING GRID ON FILE \n");
-      fprintf(mtd_data->fplog, "|--STRIDE %d FILENAME %s\n\n", grid.w_stride, grid.w_file);
+      fprintf(mtd_data->fplog, "|--STRIDE %d FILENAME %s\n\n", bias_grid.w_stride, bias_grid.w_file);
     } else if(!strcmp(word[0],"READ_GRID")){
       logical.read_grid=1;
       for(iw=1;iw<nw;iw++){
         if(!strcmp(word[iw],"FILENAME")){
-          iw++; sscanf(word[iw], "%s", grid.r_file);
+          iw++; sscanf(word[iw], "%s", bias_grid.r_file);
         }
       };  
-      fprintf(mtd_data->fplog, "|-READING GRID FROM FILE %s \n\n",grid.r_file);
+      fprintf(mtd_data->fplog, "|-READING GRID FROM FILE %s \n\n",bias_grid.r_file);
     } else if(!strcmp(word[0],"PROJ_GRAD")){ 
        iw = seek_word(word,"CV"); // look for a group
        if (iw>=0){
@@ -1421,11 +1421,11 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
   if(logical.do_grid) {
    icv = 0;
    for(i=0;i<colvar.nconst;i++) if(colvar.on[i]) icv++;  
-   if(icv!=grid.ncv) plumed_error("Inconsistency between GRID and HILLS variables. Please, check !!!!!!!!!!!\n"); 
-   for(i=0;i<grid.ncv;i++) if(!colvar.on[grid.index[i]] || grid.index[i]>=colvar.nconst) 
+   if(icv!=bias_grid.ncv) plumed_error("Inconsistency between GRID and HILLS variables. Please, check !!!!!!!!!!!\n"); 
+   for(i=0;i<bias_grid.ncv;i++) if(!colvar.on[bias_grid.index[i]] || bias_grid.index[i]>=colvar.nconst) 
      plumed_error("Inconsistency between GRID and HILLS variables. Please, check !!!!!!!!!!!\n");
 // in case initialize grid stuff
-   grid_initialize(&grid);
+   grid_initialize(&bias_grid);
   }
  
 // check EXTERNAL potential CVs
@@ -1615,8 +1615,8 @@ void PREFIX read_defaults()
   mtd_data.dump_stride          = 100;
   mtd_data.temp_t		= 0.;
   
-  grid.ncv                      = 0;
-  grid.nhills                   = 0;
+  bias_grid.ncv                      = 0;
+  bias_grid.nhills                   = 0;
   colvar.pg.list		=NULL;
   colvar.pg.nlist		=0;
 
@@ -1660,15 +1660,15 @@ void PREFIX read_defaults()
     colvar.natoms[icv]          = 0;
     colvar.cell_pbc[icv]        = 0;
     colvar.delta_r[icv]         = -1.; // default synonim of NOHILLS
-    grid.min[icv]               = 0.;
-    grid.max[icv]               = 0.; 
-    grid.lbox[icv]              = 0.;
-    grid.dx[icv]                = 0.;
-    grid.bin[icv]               = 1;
-    grid.minibin[icv]           = 1;
-    grid.period[icv]            = 0;
-    grid.index[icv]             = 0;
-    grid.oldelta[icv]           = 0.;
+    bias_grid.min[icv]          = 0.;
+    bias_grid.max[icv]          = 0.; 
+    bias_grid.lbox[icv]         = 0.;
+    bias_grid.dx[icv]           = 0.;
+    bias_grid.bin[icv]          = 1;
+    bias_grid.minibin[icv]      = 1;
+    bias_grid.period[icv]       = 0;
+    bias_grid.index[icv]        = 0;
+    bias_grid.oldelta[icv]      = 0.;
     // JFD>
     hills.mcgdp_reshape_flag[icv] = 0;
     // <JFD

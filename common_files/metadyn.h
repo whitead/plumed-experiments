@@ -1587,7 +1587,7 @@ void point_to_matrix(int i,struct sz_data *my_sz);
     MYEXT int nsz;
     MYEXT int kill_me[nconst_max];
 // GRID stuff
-    MYEXT struct grid_s       grid;
+    MYEXT struct grid_s       bias_grid;
 // COMMIT
     MYEXT struct commit_s   commit;
 // alpha/betarmsd stuff

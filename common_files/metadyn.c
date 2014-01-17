@@ -1210,8 +1210,8 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
       sprintf(mtd_data.colfilen, "%s/COLVAR%i", hills.dir, mtd_data.repl);
       sprintf(mtd_data.dump_filen, "%s/PLUMED_DUMP%i.xtc", hills.dir, mtd_data.repl);
       sprintf(mtd_data.hilfilen, "%s/HILLS%i",  hills.dir, mtd_data.repl);
-      if(logical.read_grid)   sprintf(grid.r_file,"%s%i",  grid.r_file, mtd_data.repl);
-      if(logical.write_grid)  sprintf(grid.w_file,"%s%i",  grid.w_file, mtd_data.repl);
+      if(logical.read_grid)   sprintf(bias_grid.r_file,"%s%i",  bias_grid.r_file, mtd_data.repl);
+      if(logical.write_grid)  sprintf(bias_grid.w_file,"%s%i",  bias_grid.w_file, mtd_data.repl);
       if(logical.do_external) sprintf(extpot.r_file,"%s%i",  extpot.r_file, mtd_data.repl);
       // JFD>
       if(logical.ttdebug)     sprintf(colvar.ttdebug_file,"%s%i", colvar.ttdebug_file, mtd_data.repl);
@@ -1221,8 +1221,8 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
       sprintf(mtd_data.colfilen, "%s/COLVAR%i", hills.dir, mtd_data.mcr->ms->sim);
       sprintf(mtd_data.dump_filen, "%s/PLUMED_DUMP%i.xtc", hills.dir, mtd_data.mcr->ms->sim);
       sprintf(mtd_data.hilfilen, "%s/HILLS%i",  hills.dir, mtd_data.mcr->ms->sim);
-      if(logical.read_grid)   sprintf(grid.r_file,"%s%i",  grid.r_file, mtd_data.mcr->ms->sim);
-      if(logical.write_grid)  sprintf(grid.w_file,"%s%i",  grid.w_file, mtd_data.mcr->ms->sim);
+      if(logical.read_grid)   sprintf(bias_grid.r_file,"%s%i",  bias_grid.r_file, mtd_data.mcr->ms->sim);
+      if(logical.write_grid)  sprintf(bias_grid.w_file,"%s%i",  bias_grid.w_file, mtd_data.mcr->ms->sim);
       if(logical.do_external) sprintf(extpot.r_file,"%s%i",  extpot.r_file, mtd_data.mcr->ms->sim);
       // JFD>
       if(logical.ttdebug)     sprintf(colvar.ttdebug_file,"%s%i",  colvar.ttdebug_file, mtd_data.mcr->ms->sim);
@@ -1261,13 +1261,10 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
     if(!logical.do_grid) plumed_error("You must use a grid (see GRID keyword) to perform targted\n");
     
     //copy over a few things from grid, which are compared with the target grid. 
-    target_grid.ncv = grid.ncv;
-    for(i = 0; i < grid.ncv; i++) {
-      target_grid.index[i] = grid.index[i];
-      target_grid.bin[i] = grid.bin[i];
-      target_grid.min[i] = grid.min[i];
-      target_grid.max[i] = grid.max[i];
-      target_grid.period[i] = grid.period[i];
+    target_grid.ncv = bias_grid.ncv;
+    for(i = 0; i < bias_grid.ncv; i++) {
+      target_grid.index[i] = bias_grid.index[i];
+      target_grid.period[i] = bias_grid.period[i];
     }
     
     grid_read_fromfile(&target_grid, 0);
@@ -1278,7 +1275,7 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
     hills.ss0_t     = float_2d_array_alloc(hills.ntothills,colvar.nconst); 
     hills.ww        = float_1d_array_alloc(hills.ntothills);
     colvar.delta_s  = float_2d_array_alloc(hills.ntothills,colvar.nconst);
-    if(logical.read_grid)  grid_read_fromfile(&grid, 1);      // reading GRID from file 
+    if(logical.read_grid)  grid_read_fromfile(&bias_grid, 1);      // reading GRID from file 
     if(logical.restart_hills) {
       read_hills(&mtd_data,1,hills.first_read);    	// if restart
     } else {                                           	// if not restart, backup old file

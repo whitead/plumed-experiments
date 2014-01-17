@@ -437,7 +437,7 @@ real PREFIX hills_engine(real* ss0,real* force){
 // if logical.debug_grid is set, the actual force is calculated with the hills, but
 // in a debug file we write the actual and the grid force and energy
   for(ih=nhstart;ih<nh;ih+=nhstride){
-    if(logical.do_grid && ih>=grid.nhills && ih < hills.read) grid_addhills(&grid,hills.ww[ih],hills.ss0_t[ih],colvar.delta_s[ih],rank,npe);
+    if(logical.do_grid && ih>=bias_grid.nhills && ih < hills.read) grid_addhills(&bias_grid,hills.ww[ih],hills.ss0_t[ih],colvar.delta_s[ih],rank,npe);
     if(!logical.do_grid || logical.debug_grid || ih >= hills.read) {
      
       dp2 = hills_engine_dp(ih, ss0, dp);
@@ -506,9 +506,9 @@ real PREFIX hills_engine(real* ss0,real* force){
   }
 
   if(logical.do_grid) {
-    grid.nhills = hills.read;
+    bias_grid.nhills = hills.read;
     if(!logical.debug_grid){
-      Vbias+=grid_getstuff(&grid,ss0,force);
+      Vbias+=grid_getstuff(&bias_grid,ss0,force);
     } else {
       static FILE *file=NULL;
       if(!file) {
@@ -522,7 +522,7 @@ real PREFIX hills_engine(real* ss0,real* force){
       real forceG [nconst_max];
       int i;
       for(i=0;i<ncv;i++)  forceG[i]=0;
-      VbiasG=grid_getstuff(&grid,ss0,forceG);
+      VbiasG=grid_getstuff(&bias_grid,ss0,forceG);
       for(i=0;i<ncv;i++) fprintf(file," %f",ss0[i]);
       fprintf(file,"   %f %f    ",Vbias,VbiasG);
       if(force) for(i=0;i<ncv;i++) fprintf(file," %f %f",force[i],forceG[i]);
@@ -1445,21 +1445,21 @@ double PREFIX transition_bias_ND() {
     size_t i, j;
 
     // Use the grid and bias to define convenient minimal data structures.
-    dims = grid.ncv;
+    dims = bias_grid.ncv;
     d_sizes = (size_t *)malloc(dims * sizeof(size_t));
     d_bcs = (size_t *)malloc(dims * sizeof(size_t));
     for (i = 0; i < dims; i++) {
-        d_sizes[i] = grid.bin[i];
-        if (grid.period[i]) {
+        d_sizes[i] = bias_grid.bin[i];
+        if (bias_grid.period[i]) {
             d_bcs[i] = TTMETAD_LATTICE_PBC;
-        } else if (!grid.period[i]) {
+        } else if (!bias_grid.period[i]) {
             d_bcs[i] = TTMETAD_LATTICE_RBC;
         }
     }
 
     lat = make_lattice(dims, d_sizes, d_bcs);
     lat_arr = make_lattice_array(lat);
-    set_const_lattice_array(lat_arr, grid.pot);
+    set_const_lattice_array(lat_arr, bias_grid.pot);
 
     if (!colvar.transition_wells_converted) {
         int *index_nd;
@@ -1470,13 +1470,13 @@ double PREFIX transition_bias_ND() {
 
             // Convert to multidimensional grid indices.
             for(j = 0; j < dims; j++) {
-                if((colvar.transition_wells[i][j]<grid.min[j] || colvar.transition_wells[i][j]>=grid.max[j]) && !grid.period[j]) plumed_error("Transition well is outside the GRID!. Please increase GRID size.");
-                if(grid.period[j])  colvar.transition_wells[i][j] -= grid.lbox[j] * rint(colvar.transition_wells[i][j]/grid.lbox[j]);
-                index_nd[j] = floor((colvar.transition_wells[i][j]-grid.min[j])/grid.dx[j]);
+                if((colvar.transition_wells[i][j]<bias_grid.min[j] || colvar.transition_wells[i][j]>=bias_grid.max[j]) && !bias_grid.period[j]) plumed_error("Transition well is outside the GRID!. Please increase GRID size.");
+                if(bias_grid.period[j])  colvar.transition_wells[i][j] -= bias_grid.lbox[j] * rint(colvar.transition_wells[i][j]/bias_grid.lbox[j]);
+                index_nd[j] = floor((colvar.transition_wells[i][j]-bias_grid.min[j])/bias_grid.dx[j]);
             }
 
             // Convert to one-dimensional index and record it.
-            colvar.transition_well_indices[i] = grid_multi2one(&grid, index_nd);
+            colvar.transition_well_indices[i] = grid_multi2one(&bias_grid, index_nd);
         }
         colvar.transition_wells_converted = 1;
         free(index_nd);

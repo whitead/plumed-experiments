@@ -52,7 +52,7 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
   nth  = ( (logical.not_same_step)&&(logical.do_hills)&&(!(colvar.it%hills.nt_hills))&&(!firstTime) )
          || (hills.max_height>0);              									          // have I got to add HILL?
   ntrh = (logical.not_same_step)&&(logical.do_hills)&&(!(colvar.it%hills.nr_hills))&&(logical.do_walkers)&&(!firstTime) ; // period in steps to read HILLS
-  ntwg = (logical.write_grid)&&(logical.not_same_step)&&(!(colvar.it%grid.w_stride))&&(!firstTime);                       // write GRID on file
+  ntwg = (logical.write_grid)&&(logical.not_same_step)&&(!(colvar.it%bias_grid.w_stride))&&(!firstTime);                       // write GRID on file
 
 #ifdef PLUMED_GROMACS
   set_pbc(&mtd_data->metapbc, mtd_data->ePBC, mtd_data->cell);                                              // set pbc
@@ -195,7 +195,7 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
        read_hills(mtd_data,0,hills.first_read);              	// is it time to read_hills?
        hills.first_read = 0;
     }
-    if(ntwg)  grid_write_tofile(&grid);                         // write GRID on file
+    if(ntwg)  grid_write_tofile(&bias_grid);                         // write GRID on file
   }
 
   cvw.Vwall=soft_walls_engine(colvar.ss0,cvw.fwall);                // Wall potential
