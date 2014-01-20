@@ -45,7 +45,6 @@ class Grid:
         self.min = []
         self.max = []
         self.min = []
-        self.dx = []
         self.types = []
         self.periodic = []
         self.pot = None
@@ -62,8 +61,13 @@ class Grid:
             return 0
         return len(np.shape(self.pot))
 
+    @property
+    def dx(self):
+        if(self.pot is None):
+            return 0
+        return [float(max - min) / nb for max,min,nb in zip(self.max, self.min, self.nbins)]
+
     def add_cv(self, name, min, max, bin_number, periodic=False):
-        self.dx.append(float(max - min) / bin_number)
         self.min.append(min)
         self.max.append(max)
         self.periodic.append(periodic)
@@ -72,7 +76,7 @@ class Grid:
             self.pot = np.zeros(bin_number)
         else:
             self.pot = np.resize(self.pot, self.nbins + (int(bin_number),))
-        
+
     def to_index(self, x, i):
         return max(0, min(self.nbins[i] - 1, int(floor( (x - self.min[i]) / self.dx[i]) )))
                
@@ -120,23 +124,49 @@ class Grid:
         zoom_factor = np.array(new_shape, dtype='float') / self.nbins
         self.pot = zoom(self.pot, zoom_factor, prefilter=True, mode='nearest')
                         
-    def _enumerate_grid(self, fxn, dim=None, indices=[]):
+    def _enumerate_grid(self, fxn, dim=None, indices=[], end_fxn=None):
         if(dim is None):
             dim = self.ncv - 1
         if(dim > 0):
             for i in range(self.nbins[dim]):
                 self._enumerate_grid(fxn, 
-                               dim - 1, 
-                               Grid._prepend_emit(indices, i))
+                                     dim - 1, 
+                                     Grid._prepend_emit(indices, i), end_fxn)
+            if(end_fxn is not None):
+                self._enumerate_grid(fxn, 
+                                     dim - 1, 
+                                     Grid._prepend_emit(indices, self.nbins[dim]), end_fxn)
+
                 
         else:
-            for i in range(self.nbins[dim]):            
-                fxn(Grid._prepend_emit(indices, i))
+            #check if we are at an end
+            if(end_fxn is not None):
+                #check if any index is at an end
+                if(reduce(lambda x,y: x or y, [x == y for x,y in zip(indices,self.nbins)])):
+                    for i in range(self.nbins[dim] + 1):
+                        end_fxn(Grid._prepend_emit(indices, i))
+                else:
+                    for i in range(self.nbins[dim]):
+                        fxn(Grid._prepend_emit(indices, i))
+                    end_fxn(Grid._prepend_emit(indices, self.nbins[dim]))
+            else:
+                for i in range(self.nbins[dim]):
+                    fxn(Grid._prepend_emit(indices, i))
+
+
 
     def _print_grid(self, indices, output):
         for i,j in enumerate(indices):
             output.write('{:8} '.format(j * self.dx[i] + self.min[i]))        
         output.write('{:08}\n'.format(self.pot[tuple(indices)]))
+
+    def _print_grid_end(self, indices, output):
+        for i,j in enumerate(indices):
+            output.write('{:8} '.format(j * self.dx[i] + self.min[i]))
+        #copy the last bin to the boundary
+        indices = [i if i < nb else nb - 1 for i,nb in zip(indices,self.nbins)]
+        output.write('{:08}\n'.format(self.pot[tuple(indices)]))
+
             
 
     def write(self, output):
@@ -149,13 +179,13 @@ class Grid:
         mod_max = copy.copy(self.max)
         for i,p in enumerate(self.periodic):
             mod_bins[i] -= 1 if p else 0
-            mod_max[i] -= 2 * self.dx[i] if p else self.dx[i]
-
-        self._print_header_array('BIN', np.array(mod_bins) - 1, output)
+            mod_max[i] -= self.dx[i] if p else 0
+        
+        self._print_header_array('BIN', np.array(mod_bins), output)
         self._print_header_array('MIN', self.min, output)
         self._print_header_array('MAX', mod_max, output)
         self._print_header_array('PBC', [1 if x else 0 for x in self.periodic], output)
-        self._enumerate_grid(lambda x: self._print_grid(x, output))
+        self._enumerate_grid(lambda x: self._print_grid(x, output), end_fxn=lambda x: self._print_grid_end(x,output))
         
 
     def add_png_to_grid(self, filename):
@@ -164,11 +194,10 @@ class Grid:
         from pylab import imread, imshow, gray, mean
         a = imread(filename) # read to RGB file
         gray_scale = mean(a,2) # convert to grayscale
-        #replace zeros with lowest P
+        #replace zeros with lowest P divided by 1000
         #non-zero gray
         non_zero_max = np.max(gray_scale[np.where(gray_scale) > 0])
-        print non_zero_max
-        gray_scale[np.where(gray_scale == 0)] = non_zero_max
+        gray_scale[np.where(gray_scale == 0)] = non_zero_max / 100
         csum = np.sum(gray_scale)        
         self.resize(np.shape(gray_scale))
         self.pot += np.log(gray_scale) - log(csum)    
@@ -178,24 +207,23 @@ def test():
     import sys
     import matplotlib.pyplot as plt
     g = Grid()
-    g.add_cv("Distance", 0, 8, 16, True)
-    g.add_cv("Distance", 0, 8, 16, True)
+    g.add_cv("Distance", 0, 12, 16)
+    g.add_cv("Distance", 0, 12, 16)
     g.add_png_to_grid("circle.png")
-    g.resize((600,600))
-    plt.imshow(np.exp(g.pot), interpolation='none', cmap='binary')
+    g.resize((100,100))
+    plt.imshow(np.exp(g.pot), interpolation='none', cmap='gray')
     plt.savefig("circle_out.png")
-
-    g.resize((8,8))
-#    g.write(sys.stdout)    
-
+    g.write(sys.stdout)    
 
     g = Grid()
     g.add_cv("Distance", 0, 10, 128, True)
     g.add_cv("Distance", 0, 10, 128, True)
     g.add_png_to_grid("uc_shield.png")
     g.resize((128,128))
-    plt.imshow(np.exp(g.pot), interpolation='none', cmap='binary')
+    plt.imshow(np.exp(g.pot), interpolation='none', cmap='gray')
     plt.savefig("uc_out.png")
+
+
 
 
 if __name__ == "__main__":
