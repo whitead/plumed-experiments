@@ -1,5 +1,6 @@
 from math import ceil, floor, log, exp
 import numpy as np
+from scipy.integrate import simps
 import copy
 
 class Grid:
@@ -49,6 +50,11 @@ class Grid:
         self.periodic = []
         self.pot = None
 
+
+    @property
+    def dims(self):
+        return len(self.min)
+    
     @property
     def nbins(self):
         if(self.pot is None):
@@ -167,7 +173,18 @@ class Grid:
         indices = [i if i < nb else nb - 1 for i,nb in zip(indices,self.nbins)]
         output.write('{:08}\n'.format(self.pot[tuple(indices)]))
 
-            
+
+    def normalize(self):
+        interval = 250
+        grids = [np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)]
+        mesh = np.meshgrid(*grids)
+        Z = np.exp(self.pot)
+        grids.reverse()
+        for g in grids:
+            Z = simps(Z, g)
+        self.pot -= np.log(Z)
+
+    
 
     def write(self, output):
         output.write('#! FORCE 0\n')
@@ -200,12 +217,11 @@ class Grid:
 
             
         gray_scale = gray_scale.astype(np.float64)
-        too_small = exp(-200)
+        too_small = exp(-10)
         gray_scale[np.where(gray_scale < too_small)] = too_small
-        csum = np.sum(gray_scale)        
         self.resize(np.shape(gray_scale))
-        self.pot += np.log(gray_scale) - log(csum)    
-                                                                
+        self.pot += np.log(gray_scale)
+        self.normalize()
 
 def test():
     import sys
@@ -226,7 +242,6 @@ def test():
     g.resize((128,128))
     plt.imshow(np.exp(g.pot), interpolation='none', cmap='gray')
     plt.savefig("uc_out.png")
-
 
 
 
