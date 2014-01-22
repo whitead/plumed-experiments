@@ -1,4 +1,4 @@
-from math import ceil, floor, log
+from math import ceil, floor, log, exp
 import numpy as np
 import copy
 
@@ -193,11 +193,15 @@ class Grid:
             raise ValueError("This method only makes sense on 2D grids. Grid is currently {} dimension".format(self.ncv))
         from pylab import imread, imshow, gray, mean
         a = imread(filename) # read to RGB file
-        gray_scale = mean(a,2) # convert to grayscale
-        #replace zeros with lowest P divided by 1000
-        #non-zero gray
-        non_zero_max = np.max(gray_scale[np.where(gray_scale) > 0])
-        gray_scale[np.where(gray_scale == 0)] = non_zero_max / 100
+        if(np.shape(a)[2] == 4):
+            gray_scale = mean(a[:,:,0:2],2) * a[:,:,3] # convert to grayscale by multiplication with alpha channel
+        else:
+            gray_scale = mean(a,2)# convert to gray scale with meana
+
+            
+        gray_scale = gray_scale.astype(np.float64)
+        too_small = exp(-200)
+        gray_scale[np.where(gray_scale < too_small)] = too_small
         csum = np.sum(gray_scale)        
         self.resize(np.shape(gray_scale))
         self.pot += np.log(gray_scale) - log(csum)    
@@ -210,7 +214,7 @@ def test():
     g.add_cv("Distance", 0, 12, 16)
     g.add_cv("Distance", 0, 12, 16)
     g.add_png_to_grid("circle.png")
-    g.resize((100,100))
+    g.resize((256,256))
     plt.imshow(np.exp(g.pot), interpolation='none', cmap='gray')
     plt.savefig("circle_out.png")
     g.write(sys.stdout)    
