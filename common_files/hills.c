@@ -433,77 +433,84 @@ real PREFIX hills_engine(real* ss0,real* force){
   Vbias=0.0;
   if(force) for(icv=0;icv<ncv;icv++) force[icv]=0.0;
 
+  //ADW: The loop below is way too slow as the number of hills is
+  //increased on a grid. I'm separating it for the different cases.
+  if(logical.do_grid && !logical.debug_grid) { 
+    for(ih=bias_grid.nhills; ih < nh && ih < hills.read; ih+=nhstride){
+      grid_addhills(&bias_grid,hills.ww[ih],hills.ss0_t[ih],colvar.delta_s[ih],rank,npe); 
+    }
+    nhstart = hills.read;
+  }
+  
 // This loop is parallelized
-// if logical.debug_grid is set, the actual force is calculated with the hills, but
-// in a debug file we write the actual and the grid force and energy
+  // if logical.debug_grid is set, the actual force is calculated with the hills, but
+  // in a debug file we write the actual and the grid force and energy
+
   for(ih=nhstart;ih<nh;ih+=nhstride){
-    if(logical.do_grid && ih>=bias_grid.nhills && ih < hills.read) grid_addhills(&bias_grid,hills.ww[ih],hills.ss0_t[ih],colvar.delta_s[ih],rank,npe);
-    if(!logical.do_grid || logical.debug_grid || ih >= hills.read) {
-     
-      dp2 = hills_engine_dp(ih, ss0, dp);
-      if(dp2 < DP2CUTOFF){
-        dp2index =  dp2 * GTAB / DP2CUTOFF;
-        VhillsLast = hills.ww[ih] * hills.exp[dp2index];
-        // JFD>
-        // The McGovern-de Pablo boundary consistent hills require dividing
-        // the usual hill Gaussian by an error function term representing
-        // the integral of that Gaussian over the allowed interval.
-        if (logical.mcgdp_hills) {
-          mcgdp_VHillDenom = 1.0;
-          for (icv=0; icv<ncv; icv++) if(colvar.on[icv]) {
+    dp2 = hills_engine_dp(ih, ss0, dp);
+    if(dp2 < DP2CUTOFF){
+      dp2index =  dp2 * GTAB / DP2CUTOFF;
+      VhillsLast = hills.ww[ih] * hills.exp[dp2index];
+      // JFD>
+      // The McGovern-de Pablo boundary consistent hills require dividing
+      // the usual hill Gaussian by an error function term representing
+      // the integral of that Gaussian over the allowed interval.
+      if (logical.mcgdp_hills) {
+	mcgdp_VHillDenom = 1.0;
+	for (icv=0; icv<ncv; icv++) if(colvar.on[icv]) {
             if (hills.mcgdp_reshape_flag[icv] == 1) {
               erf_index = (ss0[icv] - hills.hill_lower_bounds[icv])/(hills.hill_upper_bounds[icv]-hills.hill_lower_bounds[icv]) * GTAB;
               mcgdp_VHillDenom *= hills.erf[erf_index][icv] / 2.0;
             }
           }
-          VhillsLast /= mcgdp_VHillDenom;
-        }
-        // <JFD
-        Vbias += VhillsLast;
-        if(force) for(icv=0;icv<ncv;icv++) if(colvar.on[icv]) {
-          if(logical.interval[icv]) {
-            if((ss0[icv]> cvint.lower_limit[icv] && ss0[icv]<cvint.upper_limit[icv])) {
-              force[icv] += dp[icv] / colvar.delta_s[ih][icv] * VhillsLast;  // -dU/dCV
-            }
-          // JFD>
-          // Applying the product rule to McGovern-de Pablo hill, taking
-          // derivatives of the numerator and denominator into separate
-          // terms, results in one normal-looking but rescaled Gaussian 
-          // force and one more complex boundary correction term.
-          } else if (logical.mcgdp_hills && hills.mcgdp_reshape_flag[icv]) {
-            // Compute how large the hill is where it hits the lower bound
-            lbound_exp_argument = (ss0[icv] - hills.hill_lower_bounds[icv]) * (ss0[icv] - hills.hill_lower_bounds[icv])/(2 * colvar.delta_s[ih][icv] * colvar.delta_s[ih][icv]);
-            if (lbound_exp_argument < DP2CUTOFF) {
-              lbound_exp_index = lbound_exp_argument * GTAB / DP2CUTOFF;
-              lbound_gaussian = hills.exp[lbound_exp_index];
-            } else {
-              lbound_gaussian = 0;
-            }
-            // Compute how large the hill is where it hits the upper bound
-            ubound_exp_argument = (hills.hill_upper_bounds[icv] - ss0[icv]) * (hills.hill_upper_bounds[icv] - ss0[icv])/(2 * colvar.delta_s[ih][icv] * colvar.delta_s[ih][icv]);
-            if (ubound_exp_argument < DP2CUTOFF) {
-              ubound_exp_index = ubound_exp_argument * GTAB / DP2CUTOFF;
-              ubound_gaussian = hills.exp[ubound_exp_index];
-            } else {
-              ubound_gaussian = 0;
-            }
-            // Compute the term corresponding to taking the derivative of the
-            // hill function's denominator
-            if (lbound_gaussian > 0 || ubound_gaussian > 0) {
-              mcdgp_force_correction = M_sqrt2oPI * (lbound_gaussian - ubound_gaussian) * VhillsLast / hills.erf[erf_index][icv] * colvar.delta_s[ih][icv];
-            } else {
-              mcdgp_force_correction = 0;
-            }
-            force[icv] += dp[icv] / colvar.delta_s[ih][icv] * VhillsLast + mcdgp_force_correction;
-          // <JFD
-          } else {
-            force[icv] += dp[icv] / colvar.delta_s[ih][icv] * VhillsLast;  // -dU/dCV
-          }
-        }
+	VhillsLast /= mcgdp_VHillDenom;
       }
-
+      // <JFD
+      Vbias += VhillsLast;
+      if(force) for(icv=0;icv<ncv;icv++) if(colvar.on[icv]) {
+	    if(logical.interval[icv]) {
+	      if((ss0[icv]> cvint.lower_limit[icv] && ss0[icv]<cvint.upper_limit[icv])) {
+		force[icv] += dp[icv] / colvar.delta_s[ih][icv] * VhillsLast;  // -dU/dCV
+	      }
+	      // JFD>
+	      // Applying the product rule to McGovern-de Pablo hill, taking
+	      // derivatives of the numerator and denominator into separate
+	      // terms, results in one normal-looking but rescaled Gaussian 
+	      // force and one more complex boundary correction term.
+	    } else if (logical.mcgdp_hills && hills.mcgdp_reshape_flag[icv]) {
+	      // Compute how large the hill is where it hits the lower bound
+	      lbound_exp_argument = (ss0[icv] - hills.hill_lower_bounds[icv]) * (ss0[icv] - hills.hill_lower_bounds[icv])/(2 * colvar.delta_s[ih][icv] * colvar.delta_s[ih][icv]);
+	      if (lbound_exp_argument < DP2CUTOFF) {
+		lbound_exp_index = lbound_exp_argument * GTAB / DP2CUTOFF;
+		lbound_gaussian = hills.exp[lbound_exp_index];
+	      } else {
+		lbound_gaussian = 0;
+	      }
+	      // Compute how large the hill is where it hits the upper bound
+	      ubound_exp_argument = (hills.hill_upper_bounds[icv] - ss0[icv]) * (hills.hill_upper_bounds[icv] - ss0[icv])/(2 * colvar.delta_s[ih][icv] * colvar.delta_s[ih][icv]);
+	      if (ubound_exp_argument < DP2CUTOFF) {
+		ubound_exp_index = ubound_exp_argument * GTAB / DP2CUTOFF;
+		ubound_gaussian = hills.exp[ubound_exp_index];
+	      } else {
+		ubound_gaussian = 0;
+	      }
+	      // Compute the term corresponding to taking the derivative of the
+            // hill function's denominator
+	      if (lbound_gaussian > 0 || ubound_gaussian > 0) {
+		mcdgp_force_correction = M_sqrt2oPI * (lbound_gaussian - ubound_gaussian) * VhillsLast / hills.erf[erf_index][icv] * colvar.delta_s[ih][icv];
+	      } else {
+		mcdgp_force_correction = 0;
+	      }
+	      force[icv] += dp[icv] / colvar.delta_s[ih][icv] * VhillsLast + mcdgp_force_correction;
+	      // <JFD
+	    } else {
+	      force[icv] += dp[icv] / colvar.delta_s[ih][icv] * VhillsLast;  // -dU/dCV
+	    }
+	  }
     }
+    
   }
+
 
   if(logical.do_grid) {
     bias_grid.nhills = hills.read;
