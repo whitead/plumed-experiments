@@ -5,6 +5,8 @@
 # this script needs to be launched from the root directory of the host code
 destination="$PWD"
 
+plumedir="/Users/jfdama/Code Repositories/plumed-pinion"
+
 # definitions specific to this code
 CODE="gromacs-4.6.1"
 LINKED_FILES="$plumedir/common_files/*.h $plumedir/common_files/*.c"

@@ -1444,7 +1444,7 @@ real PREFIX spline(int ndim,real *dx,real *where,real *tabf,real *tabder,int* st
 double PREFIX transition_bias_ND() {
     double transition_bias, least_transition_bias;
     lattice *lat;
-    lattice_array *lat_arr;
+    lattice_array *lat_pot;
     size_t source, sink;
     size_t *d_sizes;
     size_t *d_bcs;
@@ -1465,8 +1465,9 @@ double PREFIX transition_bias_ND() {
     }
 
     lat = make_lattice(dims, d_sizes, d_bcs);
-    lat_arr = make_lattice_array(lat);
-    set_const_lattice_array(lat_arr, bias_grid.pot);
+    lat_pot = make_const_lattice_array(lat);
+    set_const_lattice_array(lat_pot, grid.pot);
+
 
     if (!colvar.transition_wells_converted) {
         int *index_nd;
@@ -1491,19 +1492,19 @@ double PREFIX transition_bias_ND() {
 
     // Find the transition bias using those variables.
     // The transition is the maximum of minimal maxima of paths between pairs of wells.
-    least_transition_bias = find_maximal_path_minimum(lat_arr, colvar.transition_well_indices[1], colvar.transition_well_indices[0]);
+    least_transition_bias = find_maximal_path_minimum(lat_pot, colvar.transition_well_indices[1], colvar.transition_well_indices[0]);
     for (i = 0; i < colvar.n_transition_wells; i++) {
         for (j = 0; j < i; j++) {
             if (i == 1 && j == 0) continue;    // Already calculated.
             source = colvar.transition_well_indices[i];
             sink = colvar.transition_well_indices[j];
-            transition_bias = find_maximal_path_minimum(lat_arr, source, sink);
+            transition_bias = find_maximal_path_minimum(lat_pot, source, sink);
             least_transition_bias = fmin(transition_bias, least_transition_bias);
         }
     }
     
     // Clean up.
-    free_const_lattice_array(lat_arr);
+    free_const_lattice_array(lat_pot);
     free_lattice(lat);
     free(d_bcs);
     free(d_sizes);
@@ -1652,6 +1653,22 @@ PREFIX lattice_array *PREFIX make_lattice_array(PREFIX lattice *lat) {
     for (i = 0; i < lat->total_size; ++i) {
         new_lat_arr->vals[i] = 0;
     }
+    
+    return new_lat_arr;
+}
+
+PREFIX lattice_array *PREFIX make_const_lattice_array(PREFIX lattice *lat) {
+    
+    lattice_array *new_lat_arr;
+    
+    /* Allocate the struct. */
+    new_lat_arr = (lattice_array *)malloc(sizeof(lattice_array));
+    
+    /* Set which lattice pointer to use. */
+    new_lat_arr->index_lat = lat;
+    
+    /* Do not allocate or initialize the array to zero. */
+    new_lat_arr->vals = NULL;
     
     return new_lat_arr;
 }
