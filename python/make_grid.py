@@ -3,7 +3,7 @@ import numpy as np
 from scipy.integrate import simps
 import copy
 
-class Grid:
+class Grid(object):
     """PLUMED grid class
     
     Member variables: 
@@ -43,13 +43,26 @@ class Grid:
 
     def __init__(self):
         """Create a grid. Add individual CVs using the add_cv method"""
+        self._clear()
+
+    def _clear(self):
         self.min = []
         self.max = []
-        self.min = []
         self.types = []
         self.periodic = []
         self.pot = None
+        self.meshgrid = None
 
+
+    def clone(self):
+        g = Grid()
+        g.min = copy.copy(self.min)
+        g.max = copy.copy(self.max)
+        g.types = copy.copy(self.types)
+        g.periodic = copy.copy(self.periodic)
+        g.pot = np.copy(self.pot)
+        return g
+        
 
     @property
     def dims(self):
@@ -59,7 +72,7 @@ class Grid:
     def nbins(self):
         if(self.pot is None):
             return ()
-        return np.shape(self.pot)
+        return np.shape(self.pot)        
     
     @property
     def ncv(self):
@@ -76,16 +89,46 @@ class Grid:
     def add_cv(self, name, min, max, bin_number, periodic=False):
         self.min.append(min)
         self.max.append(max)
+        self.meshgrid = None
         self.periodic.append(periodic)
-        self.types.append(Grid.cv_type_map[name])
+        if(type(name) == type("")):
+            self.types.append(Grid.cv_type_map[name])
+        else:
+            self.types.append(name)
         if(self.pot is None):
             self.pot = np.zeros(bin_number)
         else:
             self.pot = np.resize(self.pot, self.nbins + (int(bin_number),))
 
+            
+    def set_min(self,min):
+        #Change the mins. Fills with previous boundaries
+        g = self.clone()
+        self._clear()
+        for t,m,x,b,p in zip(g.types, min, g.max, g.nbins, g.periodic):
+            self.add_cv(t,m,x,b,p)
+        self.add(g)
+
+
+    def set_max(self,max):
+        #Change the maxs. Fills with previous boundaries
+        g = self.clone()
+        self._clear()
+        for t,m,x,b,p in zip(g.types, g.min, max, g.nbins, g.periodic):
+            self.add_cv(t,m,x,b,p)
+        self.add(g)
+        #set values to g minimum
+        self.pot[np.where(self.pot == 0)] = np.min(g.pot)
+
+        
+
     def to_index(self, x, i):
-        return max(0, min(self.nbins[i] - 1, int(floor( (x - self.min[i]) / self.dx[i]) )))
-               
+        return max(0, min(self.nbins[i] - 1, int(floor( (x - self.min[i]) / self.dx[i]))))
+
+    def np_to_index(self, x):
+        return np.fmax(np.zeros(np.shape(x)), np.fmin(np.array(self.nbins) - 1, np.floor( (x - np.array(self.min)) / np.array(self.dx))))
+
+
     def add_value(self, x, v):
         if(len(x) != self.ncv):
             raise ValueError("Dimension of given x vector does not match grid dimension!")
@@ -104,14 +147,24 @@ class Grid:
             index[i] = self.to_index(xi, i)
         self.pot[tuple(index)] = v
 
-            
-    def get_value(self, x, v):
+    def get_value(self, x):
+        if(len(x) != self.ncv):
+            raise ValueError("Dimension of given x vector does not match grid dimension!")
         index = [0 for xi in x]
         for i, xi in enumerate(x):
             assert xi >= self.min[i] and xi <= self.max[i],"Mesh point is not within grid dimension {}: {}, [{}, {}]".format(i, xi, self.min[i], self.max[i])
             index[i] = self.to_index(xi, i)
         return self.pot[tuple(index)]
 
+
+    def add(self, other_grid):
+        if(self.meshgrid is None):
+            self.meshgrid = np.meshgrid(*[np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)], indexing='ij')
+        for x in np.nditer(self.meshgrid):
+            indexo = other_grid.np_to_index(x)
+            indexs = self.np_to_index(x)
+            self.pot[tuple(indexs)] += other_grid.pot[tuple(indexo)]
+        
 
     def _print_header_array(self, name, array, output):
         output.write('#! {} '.format(name))
@@ -125,10 +178,11 @@ class Grid:
         array_copy.insert(0, element)
         return array_copy
 
-    def resize(self, new_shape):
+    def set_bin_number(self, new_shape):
         from scipy.ndimage.interpolation import zoom
         zoom_factor = np.array(new_shape, dtype='float') / self.nbins
         self.pot = zoom(self.pot, zoom_factor, prefilter=True, mode='nearest')
+        self.meshgrid = None
                         
     def _enumerate_grid(self, fxn, dim=None, indices=[], end_fxn=None):
         if(dim is None):
@@ -205,21 +259,25 @@ class Grid:
         self._enumerate_grid(lambda x: self._print_grid(x, output), end_fxn=lambda x: self._print_grid_end(x,output))
         
 
-    def add_png_to_grid(self, filename):
+    def add_png_to_grid(self, filename, invert=False):
         if(self.ncv != 2):
             raise ValueError("This method only makes sense on 2D grids. Grid is currently {} dimension".format(self.ncv))
         from pylab import imread, imshow, gray, mean
         a = imread(filename) # read to RGB file
-        if(np.shape(a)[2] == 4):
+        if(len(np.shape(a)) == 2):
+            gray_scale = a
+        elif(np.shape(a)[2] == 4):
             gray_scale = mean(a[:,:,0:2],2) * a[:,:,3] # convert to grayscale by multiplication with alpha channel
         else:
             gray_scale = mean(a,2)# convert to gray scale with meana
 
+        if(invert):
+            gray_scale = 1 - gray_scale
             
         gray_scale = gray_scale.astype(np.float64)
         too_small = exp(-10)
         gray_scale[np.where(gray_scale < too_small)] = too_small
-        self.resize(np.shape(gray_scale))
+        self.set_bin_number(np.shape(gray_scale))
         self.pot += np.log(gray_scale)
         self.normalize()
 
@@ -227,22 +285,23 @@ def test():
     import sys
     import matplotlib.pyplot as plt
     g = Grid()
-    g.add_cv("Distance", 0, 12, 16)
-    g.add_cv("Distance", 0, 12, 16)
+    g.add_cv("Distance", 0, 8, 8)
+    g.add_cv("Distance", 0, 8, 8)
     g.add_png_to_grid("circle.png")
-    g.resize((256,256))
+    g.set_bin_number((512,512))
     plt.imshow(np.exp(g.pot), interpolation='none', cmap='gray')
-    plt.savefig("circle_out.png")
-    g.write(sys.stdout)    
+    plt.savefig("circle_out.png", res=300)
+
 
     g = Grid()
-    g.add_cv("Distance", 0, 10, 128, True)
-    g.add_cv("Distance", 0, 10, 128, True)
-    g.add_png_to_grid("uc_shield.png")
-    g.resize((128,128))
+    g.add_cv("Distance", 0, 6, 128)
+    g.add_cv("Distance", 0, 6, 128)
+    g.add_png_to_grid("uc_shield.png", invert=True)
+    g.set_bin_number((512,512))
+    g.set_max((16,16))    
     plt.imshow(np.exp(g.pot), interpolation='none', cmap='gray')
     plt.savefig("uc_out.png")
-
+    g.write(sys.stdout)    
 
 
 if __name__ == "__main__":
