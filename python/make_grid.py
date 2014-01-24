@@ -294,11 +294,12 @@ def test():
 
 
     g = Grid()
-    g.add_cv("Distance", 0, 6, 128)
-    g.add_cv("Distance", 0, 6, 128)
+    g.add_cv("Absolute position", 0, 10, 128, False)
+    g.add_cv("Absolute position", 0, 10, 128, False)
     g.add_png_to_grid("uc_shield.png", invert=True)
     g.set_bin_number((512,512))
-    g.set_max((16,16))    
+    g.set_min([-1,-1])
+    g.set_max([11,11])
     plt.imshow(np.exp(g.pot), interpolation='none', cmap='gray')
     plt.savefig("uc_out.png")
     g.write(sys.stdout)    

@@ -565,6 +565,12 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	  sscanf(word[iw], "%s", target_grid.r_file);
         }
       }
+    }else if(!strcmp(word[0],"TREAT_INDEPENDENT")) {
+      for(iw=1;iw<nw;iw++){
+	  sscanf(word[iw], "%d", &icv);
+	  colvar.b_treat_independent[icv-1] = 1;
+	  fprintf(mtd_data->fplog,"Will treat CV %d independently\n", icv);
+      }
       // <ADW
     } else if(!strcmp(word[0],"DEBUG_TRANSITIONTEMPERED")){
       logical.ttdebug=1;
@@ -1660,6 +1666,7 @@ void PREFIX read_defaults()
     colvar.natoms[icv]          = 0;
     colvar.cell_pbc[icv]        = 0;
     colvar.delta_r[icv]         = -1.; // default synonim of NOHILLS
+    colvar.b_treat_independent[icv] = 0;
     bias_grid.min[icv]          = 0.;
     bias_grid.max[icv]          = 0.; 
     bias_grid.lbox[icv]         = 0.;

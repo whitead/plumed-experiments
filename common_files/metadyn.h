@@ -465,6 +465,9 @@ struct colvar_s
   real   wtemp;	         				// well tempered temperature
   real   simtemp;                       // simulation temperature
   real   wfactor;                       // welltemp factor = wtemp/simtemp
+  //ADW>
+  int    b_treat_independent  [nconst_max];          //
+  //<ADW
   // JFD>
   real   tttemp;                        // transition tempered temperature
   real   ttfactor;                      // transitiontemp factor = tttemp/simtemp
@@ -1291,6 +1294,10 @@ extern "C" {
  double find_maximal_path_minimum(lattice_array *lat_arr, size_t source, size_t sink);
  // <JFD
 // CV routines
+ //ADW>
+ void independent_insert_hack(int i_c, int atom_index);
+ void independent_remove_hack(int i_c, int atom_index);
+ //ADW<
  void restraint(struct mtd_data_s *mtd_data);
  void test_derivatives(struct mtd_data_s *mtd_data);
  void poly_restraint_testder(int i_c, struct mtd_data_s *mtd_data);

@@ -33,9 +33,31 @@
 */
 #include "metadyn.h"
 
+//ADW>
+
+int independent_hack_cache_natoms;
+int independent_hack_cache_atom;
+
+void PREFIX independent_insert_hack(int i_c, int atom_index){
+  
+  //replace atom number and position with cached version
+  independent_hack_cache_natoms = colvar.natoms[i_c];
+  colvar.natoms[i_c] = 1;
+  independent_hack_cache_atom = colvar.cvatoms[i_c][0];
+  colvar.cvatoms[i_c][0] = colvar.cvatoms[i_c][atom_index];
+}
+
+void PREFIX independent_remove_hack(int i_c, int atom_index){
+   //swap values with the cache
+  colvar.natoms[i_c] = independent_hack_cache_natoms;
+  colvar.cvatoms[i_c][atom_index] = independent_hack_cache_atom;
+}
+
+//<ADW
+
 void PREFIX restraint(struct mtd_data_s *mtd_data)
 {
-  int i_c, ncv, nth, ntrh, ntp, rpxm, ntwg;                    // indexes for cycles and time
+  int i_c, ind_i_c, ncv, nth, ntrh, ntp, rpxm, ntwg;                    // indexes for cycles and time
 
   hills.Vhills = cvw.Vwall = Vext = Vrecon = Vconstr = Vsteerplan = 0.;  // Hills,  Walls , Constraint, external potential and steerplan energy initialization
 
@@ -104,43 +126,55 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
   };
 #endif
 
-  // this cycle is intended to calculate CVs values and derivatives
+  //ADW>
+  //repeat the entire algorithm for each independent CV   
+  int remaining_ind = 1; 
+  for(ind_i_c = 0; remaining_ind > 0; ind_i_c++) {
+    //<ADW
 
-  for(i_c=0;i_c<ncv;i_c++){
-    colvar.ff_hills[i_c] = 0.;                 	// initialization hills forces
-    cvw.fwall[i_c]       = 0.;  		// initialization walls forces
-    fext[i_c]            = 0.;                  // initialization external forces
+    // this cycle is intended to calculate CVs values and derivatives
 
-//    if((!logical.always[i_c])&&(logical.rpxm)&&(!rpxm)&&(!ntp)) continue;
-    if((!logical.always[i_c])&&(!ntp)) {   //if a variable is used only for printing purposes and it isn't the time to print then
-      if(logical.rpxm) {
-        if((!rpxm)&&(!firstTime)) continue;  //if we are doing bias-exchange and it isn't the time for an exchange we could avoid to calculate the variable
-      } else continue; //if we are not doing bias-exchange we could avoid to calculate the variable
-      // but if we are doing bias-exchange and it is time to try an axchange we must calculate all the variables
-    }
+    for(i_c=0;i_c<ncv;i_c++){
+      colvar.ff_hills[i_c] = 0.;                 	// initialization hills forces
+      cvw.fwall[i_c]       = 0.;  		// initialization walls forces
+      fext[i_c]            = 0.;                  // initialization external forces
+      
+      //    if((!logical.always[i_c])&&(logical.rpxm)&&(!rpxm)&&(!ntp)) continue;
+      if((!logical.always[i_c])&&(!ntp)) {   //if a variable is used only for printing purposes and it isn't the time to print then
+	if(logical.rpxm) {
+	  if((!rpxm)&&(!firstTime)) continue;  //if we are doing bias-exchange and it isn't the time for an exchange we could avoid to calculate the variable
+	} else continue; //if we are not doing bias-exchange we could avoid to calculate the variable
+	// but if we are doing bias-exchange and it is time to try an axchange we must calculate all the variables
+      }
+      
+      //fprintf(mtd_data->fplog,"CALCULATING CV %d\n",i_c); 
+      //fflush(mtd_data->fplog); 
 
-    //fprintf(mtd_data->fplog,"CALCULATING CV %d\n",i_c); 
-    //fflush(mtd_data->fplog); 
-
-    switch(colvar.type_s[i_c]){
-      // geometric CVs
+      //ADW>
+      //handle independently treated CVs
+      if(colvar.b_treat_independent[i_c] && colvar.natoms[i_c] > ind_i_c)
+	independent_insert_hack(i_c, ind_i_c);
+      //<ADW
+      
+      switch(colvar.type_s[i_c]){
+	// geometric CVs
       case 1: dist_restraint(i_c, mtd_data); break;			// DISTANCE
       case 2: mindist_restraint(i_c, mtd_data); break;               	// MINDIST
       case 3: coord_restraint(i_c, mtd_data); break;	              	// COORD
       case 4: angle_restraint(i_c, mtd_data); break;	                // ANGLE
       case 5: torsion_restraint(i_c, mtd_data); break;                  // TORSION
       case 6: alfabeta_restraint(i_c, mtd_data); break;                	// ALPHA-BETA
-      // interaction CVs
+	// interaction CVs
       case 7: hbonds_restraint(i_c, mtd_data); break;                   // HBONDS
       case 8: dipole_restraint(i_c, mtd_data); break;       		// DIPOLE
-      // conformations CVs
+	// conformations CVs
       case 11: radgyr_restraint(i_c, mtd_data); break;   	       	// RGYR
       case 16: dihcor_restraint(i_c, mtd_data); break;                 	// DIHEDRAL-COR
-      // water CVs
+	// water CVs
       case 20: waterbridge_restraint(i_c, mtd_data); break;            	// WATERBRIDGE
       case 21: density_restraint(i_c, mtd_data); break;                 // DENSITY
       case 22: densityswitch_restraint(i_c, mtd_data); break;           // DENSITYSWITCH
-      // trajectory CVs
+	// trajectory CVs
       case 30: spath_restraint(i_c, mtd_data); break;                   // S_MAPPATH
       case 31: zpath_restraint(i_c, mtd_data); break;                   // Z_MAPPATH
       case 32: position_restraint(i_c, mtd_data); break;                // ATOM POSITION
@@ -151,8 +185,8 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
       case 37: alpharmsd_restraint(i_c, mtd_data); break;               // ALPHARMSD
       case 38: antibetarmsd_restraint(i_c, mtd_data); break;            // ANTIBETARMSD
       case 39: parabetarmsd_restraint(i_c, mtd_data); break;            // PARABETARMSD
-      //case 40: camshift_restraint(i_c, mtd_data); break;              // CAMSHIFT ENERGY
-      //case 41: camshiftens_restraint(i_c, mtd_data); break;           // ENS CAMSHIFT ENERGY
+	//case 40: camshift_restraint(i_c, mtd_data); break;              // CAMSHIFT ENERGY
+	//case 41: camshiftens_restraint(i_c, mtd_data); break;           // ENS CAMSHIFT ENERGY
       case 42: pca_restraint(i_c, mtd_data); break;      		// PCA PROJECTION
       case 45: cmap_restraint(i_c, mtd_data); break;                    // CMAP 
 #if defined CVS  
@@ -163,66 +197,83 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
       case 50: poly_restraint(i_c, mtd_data); break;			// POLYNOMIAL COMBINATION
       case 51: func_restraint(i_c, mtd_data); break;			// GENERAL FUNC OF CVS 
       case 52: adf_restraint(i_c, 1, mtd_data); break;                  // DISCRITIZED ANGLE DISTRIBUTION FUNCTION 
-	  case 53: msd_restraint(i_c,  mtd_data); break;    	
+      case 53: msd_restraint(i_c,  mtd_data); break;    	
       case 55: sprint_restraint(i_c, mtd_data); break;                  // SPRINT TOPOLOGICAL CV
-    }
-
+      }
+      
 #ifdef PATHREF_FINDIFF
-    fprintf(mtd_data->fplog,"|---CALLING THE TEST \n");
-    //finite difference tests over reference frame derivatives
-        if(colvar.type_s[i_c]==30){pathref_findiff(i_c,mtd_data);}
-        if(colvar.type_s[i_c]==31){pathref_findiff(i_c,mtd_data);}
-    fprintf(mtd_data->fplog,"|---END OF CALL \n");
-    EXIT();
+      fprintf(mtd_data->fplog,"|---CALLING THE TEST \n");
+      //finite difference tests over reference frame derivatives
+      if(colvar.type_s[i_c]==30){pathref_findiff(i_c,mtd_data);}
+      if(colvar.type_s[i_c]==31){pathref_findiff(i_c,mtd_data);}
+      fprintf(mtd_data->fplog,"|---END OF CALL \n");
+      EXIT();
 #endif
-
-  }
-
-  mtd_data->time=colvar.it*(mtd_data->dt)+mtd_data->time_offset;
-
-  if(logical.commit) commit_analysis();     // committors analysis
-	
-  if(couplingmatrix.is_on) calc_couplingmatrix(colvar.it);	
-
-  // this is the really dynamics code in which we calculate hills forces and then forces on CVs.
-  if(logical.do_hills){
-    hills_force();						// compute hills force and energy
-    if(logical.widthadapt) hills_adapt();			// to adapt gaussian width
-    if(nth) {
-      hills_add(mtd_data);                                      // add HILL
-    } 
-    if(ntrh) {
-       read_hills(mtd_data,0,hills.first_read);              	// is it time to read_hills?
-       hills.first_read = 0;
+      
+      //ADW>
+      if(colvar.b_treat_independent[i_c] && colvar.natoms[i_c] == 1)
+	independent_remove_hack(i_c, ind_i_c);
+      //<ADW
+ 
     }
-    if(ntwg)  grid_write_tofile(&bias_grid);                         // write GRID on file
+    
+    mtd_data->time=colvar.it*(mtd_data->dt)+mtd_data->time_offset;
+    
+    if(logical.commit) commit_analysis();     // committors analysis
+    
+    if(couplingmatrix.is_on) calc_couplingmatrix(colvar.it);	
+    
+    // this is the really dynamics code in which we calculate hills forces and then forces on CVs.
+    if(logical.do_hills){
+      hills_force();						// compute hills force and energy
+      if(logical.widthadapt) hills_adapt();			// to adapt gaussian width
+      if(nth) {
+	hills_add(mtd_data);                                      // add HILL
+      } 
+      if(ntrh) {
+	read_hills(mtd_data,0,hills.first_read);              	// is it time to read_hills?
+	hills.first_read = 0;
+      }
+      if(ntwg)  grid_write_tofile(&bias_grid);                         // write GRID on file
+    }
+    
+    cvw.Vwall=soft_walls_engine(colvar.ss0,cvw.fwall);                // Wall potential
+    
+    Vext=ext_forces_engine(colvar.ss0,&extpot,fext);              // External potential
+    
+    cvw.Vwall+=steer_engine(colvar.ss0,cvw.fwall);                // Wall potential
+    
+    cvw.Vwall+=abmd_engine(colvar.ss0,cvw.fwall);                // Wall potential
+    
+    if (logical.do_dafed) dafed_engine(colvar.ss0);	       // #### d-AFED
+    
+    cvw.Vwall+=tamd_engine(colvar.ss0,cvw.fwall);                // TAMD/DAFED temperarily added here
+  
+  
+    if (logical.do_constraint) Vconstr+=constraint_engine(mtd_data->dt);            // shake on the cvs 
+  
+    
+    if(logical.do_steerplan)steerplan_engine();               // steerplan to plan adaptive us and more! 
+    
+    apply_forces(mtd_data);
+    
+    if(logical.debug_derivatives) debug_derivatives(mtd_data,ntp);
+    
+    if(ntp) print_colvar_enercv(mtd_data->time);	        	// dump COLVAR
+
+    //ADW>
+    //handle remaining independent cvs
+    remaining_ind = 0;
+    for(i_c=0;i_c<ncv;i_c++)
+      if(colvar.b_treat_independent[i_c] && ind_i_c + 1< colvar.natoms[i_c])
+	remaining_ind++;
+    //<ADW
   }
-
-  cvw.Vwall=soft_walls_engine(colvar.ss0,cvw.fwall);                // Wall potential
-
-  Vext=ext_forces_engine(colvar.ss0,&extpot,fext);              // External potential
-
-  cvw.Vwall+=steer_engine(colvar.ss0,cvw.fwall);                // Wall potential
-  
-  cvw.Vwall+=abmd_engine(colvar.ss0,cvw.fwall);                // Wall potential
-
-  if (logical.do_dafed) dafed_engine(colvar.ss0);	       // #### d-AFED
-
-  cvw.Vwall+=tamd_engine(colvar.ss0,cvw.fwall);                // TAMD/DAFED temperarily added here
-  
-  if (logical.do_constraint) Vconstr+=constraint_engine(mtd_data->dt);            // shake on the cvs 
-
-  stopwhen_engine(); // kill the run in specific points
-  
-  if(logical.do_steerplan)steerplan_engine();               // steerplan to plan adaptive us and more! 
-
-  apply_forces(mtd_data);
-
-  if(logical.debug_derivatives) debug_derivatives(mtd_data,ntp);
 
   if(colvar.pg.nlist!=0)calc_projections( &(colvar.pg)); 
+   
 
-  if(ntp) print_colvar_enercv(mtd_data->time);	        	// dump COLVAR
+  stopwhen_engine(); // kill the run in specific points
 
   if(firstTime)firstTime = 0;			                // the first PluMed step 
 
