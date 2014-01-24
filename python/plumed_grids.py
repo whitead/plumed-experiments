@@ -62,7 +62,53 @@ class Grid(object):
         g.periodic = copy.copy(self.periodic)
         g.pot = np.copy(self.pot)
         return g
+
+
+
+    def read_plumed_grid(self, filename):
+
+        import re
         
+        #I'll ignore the force for now
+        with open(filename, 'r') as f:
+            line = f.readline()
+            while(line.startswith('#!')):
+                if(line.find('TYPE') != -1):
+                    self.types = [int(x) for x in re.findall(r'\d{1,}', line)]
+                if(line.find('MIN') != -1):
+                    self.min = [float(x) for x in re.findall(r'-*\d+\.\d*', line)]
+                if(line.find('MAX') != -1):
+                    self.max = [float(x) for x in re.findall(r'-*\d+\.\d*', line)]
+                if(line.find('BIN') != -1):
+                    bins = [int(x) + 1 for x in re.findall(r'\d{1,}', line)]
+                if(line.find('NVAR') != -1):
+                    ncv = [int(x) for x in re.findall(r'\d{1,}', line)]
+                    ncv = ncv[0]
+                if(line.find('PBC') != -1):
+                    self.periodic = [int(x) == 1 for x in re.findall(r'\d{1,}', line)]
+                line = f.readline()
+        
+        #now load data
+        data = np.genfromtxt(filename)
+        self.pot = data[:,ncv]
+        
+        #undo that thing that metadynamics does for periodicity 
+        for i,p in enumerate(self.periodic):
+            if(p):
+                bins[i] += 1
+
+        self.pot = np.reshape(self.pot, bins)
+      
+        #reflect
+        self.pot = self.pot[::-1]
+
+        #rotate
+        self.pot = np.rot90(self.pot, 3)
+  
+
+                
+    def __str__(self):
+        return "{} dimension Grid object from {} to {} with {} bins. Periodic = {}, Types = {}".format(self.dims, self.min, self.max, self.nbins, self.periodic, self.types)
 
     @property
     def dims(self):
@@ -227,6 +273,16 @@ class Grid(object):
         indices = [i if i < nb else nb - 1 for i,nb in zip(indices,self.nbins)]
         output.write('{:08}\n'.format(self.pot[tuple(indices)]))
 
+    
+    def plot_2d(self, filename, cmap='gist_earth', resolution=512):
+        assert self.dims == 2
+        import matplotlib.pyplot as plt
+        old_bins = self.nbins
+        self.set_bin_number([resolution for x in range(self.dims)])
+        plt.imshow(self.pot, interpolation='bicubic', cmap=cmap, extent=[self.min[0], self.max[0],self.max[1],self.min[1]])
+        self.set_bin_number(old_bins)
+        plt.savefig(filename)
+
 
     def normalize(self):
         interval = 250
@@ -303,6 +359,15 @@ def test():
     plt.savefig("uc_out.png")
     g.write(sys.stdout)    
 
+def load_grid(filename):
+    import matplotlib.pyplot as plt
+    g = Grid()
+    g.read_plumed_grid(filename)
+    g.plot_2d("plot.png")
+
+    
 
 if __name__ == "__main__":
-    test()
+    #test()
+    import sys
+    load_grid(sys.argv[1])
