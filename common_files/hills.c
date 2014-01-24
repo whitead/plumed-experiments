@@ -851,8 +851,9 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
 // 3) if delta is changed from previous call
   flag = 0.;
   for(j = 0; j < ncv; j++) {
-    if((ss[grid->index[j]] < grid->min[j] || ss[grid->index[j]] >= grid->max[j]) && !grid->period[j])
+    if((ss[grid->index[j]] < grid->min[j] || ss[grid->index[j]] >= grid->max[j]) && !grid->period[j]) {
       plumed_error("HILLS outside GRID. Please increase GRID size."); 
+    }
     if(grid->dx[j] > delta[grid->index[j]] / 2.0) plumed_error("GRID bin size is too large compared to HILLS sigma."); 
     if(fabs((grid->oldelta[j] - delta[grid->index[j]]) / delta[grid->index[j]]) > 0.05) flag = 1; 
   }
@@ -1039,7 +1040,10 @@ real PREFIX grid_getstuff(struct grid_s *grid, real* ss0, real* force)
 // first check if the point is inside the GRID
  for(j=0;j<ncv;j++) {
   xx[j] = ss0[grid->index[j]];
-  if((xx[j]<grid->min[j] || xx[j]>=grid->max[j]) && !grid->period[j]) plumed_error("You are outside the GRID!. Please increase GRID size.");
+  if((xx[j]<grid->min[j] || xx[j]>=grid->max[j]) && !grid->period[j]) {
+      fprintf(stderr, "Bad grid value = %f\n", xx[grid->index[j]]);	
+      plumed_error("You are outside the GRID!. Please increase GRID size.");
+  }
   if(grid->period[j])  xx[j] -= grid->lbox[j] * rint(xx[j]/grid->lbox[j]);
   index_nd[j] = floor((xx[j]-grid->min[j])/grid->dx[j]);
  }
@@ -1466,7 +1470,7 @@ double PREFIX transition_bias_ND() {
 
     lat = make_lattice(dims, d_sizes, d_bcs);
     lat_pot = make_const_lattice_array(lat);
-    set_const_lattice_array(lat_pot, grid.pot);
+    set_const_lattice_array(lat_pot, bias_grid.pot);
 
 
     if (!colvar.transition_wells_converted) {
