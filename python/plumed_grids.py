@@ -64,6 +64,18 @@ class Grid(object):
         return g
 
 
+    def load_data(self, filename):
+        """Read data line by line from a file and load it into the potential"""
+        data = np.genfromtxt(filename)
+        if(np.shape(data)[1] != self.dims + 1):
+            raise ValueError("Incorrect number of dimensions in file {}".fomrat(filename))
+
+        for x in data:
+            indexs = self.np_to_index(x[:-1])
+            self.pot[tuple(indexs)] += x[-1]
+
+        
+        
 
     def read_plumed_grid(self, filename):
 
@@ -166,7 +178,12 @@ class Grid(object):
         #set values to g minimum
         self.pot[np.where(self.pot == 0)] = np.min(g.pot)
 
-        
+
+    def rescale(self, scale):
+        assert len(scale) == self.ncv
+        length_diff = [(y - x) * (s - 1) for x,y,s in zip(self.min, self.max, scale)]
+        self.min = [x - l / 2 for x,l in zip(self.min, length_diff)]
+        self.max = [x + l / 2 for x,l in zip(self.max, length_diff)]
 
     def to_index(self, x, i):
         return max(0, min(self.nbins[i] - 1, int(floor( (x - self.min[i]) / self.dx[i]))))
@@ -274,12 +291,17 @@ class Grid(object):
         output.write('{:08}\n'.format(self.pot[tuple(indices)]))
 
     
-    def plot_2d(self, filename, cmap='gist_earth', resolution=512):
-        assert self.dims == 2
+    def plot_2d(self, filename, cmap='gist_earth', resolution=512, axis=(0,1)):
+        assert self.dims >= 2
         import matplotlib.pyplot as plt
         old_bins = self.nbins
-        self.set_bin_number([resolution for x in range(self.dims)])
-        plt.imshow(self.pot, interpolation='bicubic', cmap=cmap, extent=[self.min[0], self.max[0],self.max[1],self.min[1]])
+        if(self.dims > 2):
+            #integreate along non-plotting axis
+            raise NotImplementedError()
+        else:
+            data = self.pot
+        self.set_bin_number([resolution if x in axis else self.bins[x] for x in range(self.dims)])
+        plt.imshow(self.pot, interpolation='bicubic', cmap=cmap, extent=[self.min[axis[0]], self.max[axis[0]],self.max[axis[1]],self.min[axis[1]]])
         self.set_bin_number(old_bins)
         plt.savefig(filename)
 
