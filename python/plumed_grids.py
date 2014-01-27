@@ -75,12 +75,17 @@ class Grid(object):
                 self.min = [min(m,xi) for xi,m in zip(x, self.min)]
                 self.max = [max(m,xi) for xi,m in zip(x, self.max)]
             print 'Reset min to {} and max to {}'.format(self.min, self.max) 
-                
+            
+
+        #make sure bins are large enough
+        old_bins = self.nbins
+        self.set_bin_number([np.shape(data)[0] for x in self.nbin])
         for x in data:
             indexs = self.np_to_index(x[:-1])
             self.pot[tuple(indexs)] += x[-1]
-
+        self.set_bin_number(old_bins)
         
+
     def read_plumed_grid(self, filename):
 
         import re
