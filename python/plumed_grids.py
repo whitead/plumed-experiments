@@ -64,7 +64,23 @@ class Grid(object):
         return g
 
 
+    def load_data(self, filename, reset_bounds=True):
+        """Read data line by line from a file and load it into the potential"""
+        data = np.genfromtxt(filename)
+        if(np.shape(data)[1] != self.dims + 1):
+            raise ValueError("Incorrect number of dimensions in file {}".fomrat(filename))
 
+        if(reset_bounds):
+            for x in data:
+                self.min = [min(m,xi) for xi,m in zip(x, self.min)]
+                self.max = [max(m,xi) for xi,m in zip(x, self.max)]
+            print 'Reset min to {} and max to {}'.format(self.min, self.max) 
+                
+        for x in data:
+            indexs = self.np_to_index(x[:-1])
+            self.pot[tuple(indexs)] += x[-1]
+
+        
     def read_plumed_grid(self, filename):
 
         import re
@@ -146,6 +162,20 @@ class Grid(object):
         else:
             self.pot = np.resize(self.pot, self.nbins + (int(bin_number),))
 
+    def add_margin(self, percent,pretty=True):
+        """Add a margin around the potential without affecting bin number""" 
+        assert len(percent) == self.ncv
+        length_diff = [(y - x) * (s) for x,y,s in zip(self.min, self.max, percent)]
+        new_min = [x - l / 2 for x,l in zip(self.min, length_diff)]
+        new_max = [x + l / 2 for x,l in zip(self.max, length_diff)]
+        if(pretty):
+            new_min = [round(x * 10) / 10. for x in new_min]
+            new_max = [round(x * 10) / 10. for x in new_max]
+        self.set_min(new_min)
+        self.set_max(new_max)
+        print 'Set min to {} and max to {}'.format(self.min, self.max) 
+
+        
             
     def set_min(self,min):
         #Change the mins. Fills with previous boundaries
@@ -274,13 +304,21 @@ class Grid(object):
         output.write('{:08}\n'.format(self.pot[tuple(indices)]))
 
     
-    def plot_2d(self, filename, cmap='gist_earth', resolution=512):
-        assert self.dims == 2
+    def plot_2d(self, filename, cmap='gist_earth', resolution=None, axis=(0,1)):
+        assert self.dims >= 2
         import matplotlib.pyplot as plt
         old_bins = self.nbins
-        self.set_bin_number([resolution for x in range(self.dims)])
-        plt.imshow(self.pot, interpolation='bicubic', cmap=cmap, extent=[self.min[0], self.max[0],self.max[1],self.min[1]])
-        self.set_bin_number(old_bins)
+        if(self.dims > 2):
+            #integreate along non-plotting axis
+#            raise NotImplementedError()
+            data = self.pot[:,:,self.nbins[2] / 2]
+        else:
+            data = self.pot
+        if(resolution is not None):
+            self.set_bin_number([resolution if x in axis else self.nbins[x] for x in range(self.dims)])
+        plt.imshow(data, interpolation='none', cmap=cmap, extent=[self.min[axis[0]], self.max[axis[0]],self.max[axis[1]],self.min[axis[1]]])
+        if(resolution is not None):
+            self.set_bin_number(old_bins)
         plt.savefig(filename)
 
 
