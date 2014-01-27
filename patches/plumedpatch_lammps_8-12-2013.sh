@@ -336,6 +336,9 @@ void FixPlumed::plumed_interface()
   MPI_Comm_size(world,&nprocs ) ;
  // printf("MY PROC IS %d SIZE IS %d\n",me,nprocs  );
 
+  //Enforce xlo < x <xhi
+  domain->pbc();
+
   // alias the atoms
 
   double **f = atom->f;
