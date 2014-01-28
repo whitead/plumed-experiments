@@ -52,6 +52,7 @@ class Grid(object):
         self.periodic = []
         self.pot = None
         self.meshgrid = None
+        self._nbins = None
 
 
     def clone(self):
@@ -110,15 +111,16 @@ class Grid(object):
                     self.periodic = [int(x) == 1 for x in re.findall(r'\d{1,}', line)]
                 line = f.readline()
         
-        #now load data
-        data = np.genfromtxt(filename)
-        self.pot = data[:,ncv]
-        
         #undo that thing that metadynamics does for periodicity 
         for i,p in enumerate(self.periodic):
             if(p):
-                bins[i] += 1
+                bins[i] -= 1
 
+        #now load data
+        data = np.genfromtxt(filename)
+        assert np.shape(data)[0] == reduce(lambda x,y: x * y, bins, 1), "Number of lines in grid does not match stated bin size: read {}, bins = {} => {}".format(np.shape(data)[0], bins, reduce(lambda x,y: x * y, bins, 1))
+        self.pot = data[:,ncv]
+        
         self.pot = np.reshape(self.pot, bins)
       
         #reflect
@@ -140,6 +142,8 @@ class Grid(object):
     def nbins(self):
         if(self.pot is None):
             return ()
+        if(self._nbins is not None):
+            return self._nbins
         return np.shape(self.pot)        
     
     @property
@@ -356,12 +360,20 @@ class Grid(object):
         for i,p in enumerate(self.periodic):
             mod_bins[i] -= 1 if p else 0
             mod_max[i] -= self.dx[i] if p else 0
-        
-        self._print_header_array('BIN', np.array(mod_bins), output)
+
+        #swap in 
+        self._nbins = mod_bins
+        self.max, mod_max = mod_max, self.max        
+                
+        self._print_header_array('BIN', np.shape(self.pot), output)
         self._print_header_array('MIN', self.min, output)
         self._print_header_array('MAX', mod_max, output)
         self._print_header_array('PBC', [1 if x else 0 for x in self.periodic], output)
         self._enumerate_grid(lambda x: self._print_grid(x, output), end_fxn=lambda x: self._print_grid_end(x,output))
+
+        #swap out 
+        self._nbins = None
+        self.max, mod_max = mod_max, self.max        
         
 
     def add_png_to_grid(self, filename, invert=False):
@@ -380,11 +392,14 @@ class Grid(object):
             gray_scale = 1 - gray_scale
             
         gray_scale = gray_scale.astype(np.float64)
-        too_small = exp(-10)
-        gray_scale[np.where(gray_scale < too_small)] = too_small
+        #too_small = exp(-10)
+        #gray_scale[np.where(gray_scale < too_small)] = too_small        
+        #self.pot += np.log(gray_scale)
+        old_bins = self.nbins
         self.set_bin_number(np.shape(gray_scale))
-        self.pot += np.log(gray_scale)
+        self.pot += gray_scale
         self.normalize()
+        self.set_bin_number(old_bins)
 
 def test():
     import sys
