@@ -98,9 +98,9 @@ class Grid(object):
                 if(line.find('TYPE') != -1):
                     self.types = [int(x) for x in re.findall(r'\d{1,}', line)]
                 if(line.find('MIN') != -1):
-                    self.min = [float(x) for x in re.findall(r'-*\d+\.\d*', line)]
+                    self.min = [float(x) for x in re.findall(r'-*\d+\.*\d*', line)]
                 if(line.find('MAX') != -1):
-                    self.max = [float(x) for x in re.findall(r'-*\d+\.\d*', line)]
+                    self.max = [float(x) for x in re.findall(r'-*\d+\.*\d*', line)]
                 if(line.find('BIN') != -1):
                     bins = [int(x) + 1 for x in re.findall(r'\d{1,}', line)]
                 if(line.find('NVAR') != -1):
@@ -241,7 +241,6 @@ class Grid(object):
             index[i] = self.to_index(xi, i)
         return self.pot[tuple(index)]
 
-
     def add(self, other_grid):
         if(self.meshgrid is None):
             self.meshgrid = np.meshgrid(*[np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)], indexing='ij')
@@ -332,7 +331,8 @@ class Grid(object):
 
 
     def normalize(self):
-        interval = 250
+        #make sure we don't have gigantic numbers to start
+        self.pot -= np.max(self.pot)
         grids = [np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)]
         mesh = np.meshgrid(*grids)
         Z = np.exp(self.pot)
@@ -340,7 +340,6 @@ class Grid(object):
         for g in grids:
             Z = simps(Z, g)
         self.pot -= np.log(Z)
-
     
 
     def write(self, output):
@@ -418,12 +417,30 @@ def test():
     plt.savefig("uc_out.png")
     g.write(sys.stdout)    
 
-def load_grid(filename):
+def load_plumed_grid(filename):
     import matplotlib.pyplot as plt
     g = Grid()
     g.read_plumed_grid(filename)
     g.plot_2d("plot.png")
 
+def plot_free_energy(bias_grid, target, boltzmann_factor=2, bias_factor=1):
+    g = Grid()
+    g.read_plumed_grid(bias_grid)
+    g.pot *= (bias_factor) / (bias_factor - 1)
+    g.normalize()
+
+    t = Grid()
+    t.read_plumed_grid(target)
+    t.pot *= boltzmann_factor    
+    t.normalize()
+
+    g.write(open("bias_before_add.grid", "w"))
+    t.write(open("target_before_add.grid", "w"))
+    g.add(t)
+    g.pot *= -1.
+    g.plot_2d("free_energy.png")
+    g.write(open("free_energy.grid", "w"))
+    
     
 
 if __name__ == "__main__":
