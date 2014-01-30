@@ -307,15 +307,15 @@ class Grid(object):
 
     def _print_grid(self, indices, output):
         for i,j in enumerate(indices):
-            output.write('{:8} '.format(j * self.dx[i] + self.min[i]))        
-        output.write('{:08}\n'.format(self.pot[tuple(indices)]))
+            output.write('{: 10.8f} '.format(j * self.dx[i] + self.min[i]))        
+        output.write('{: 10.8f}\n'.format(self.pot[tuple(indices)]))
 
     def _print_grid_end(self, indices, output):
         for i,j in enumerate(indices):
-            output.write('{:8} '.format(j * self.dx[i] + self.min[i]))
+            output.write('{: 10.8f} '.format(j * self.dx[i] + self.min[i]))
         #copy the last bin to the boundary
         indices = [i if i < nb else nb - 1 for i,nb in zip(indices,self.nbins)]
-        output.write('{:08}\n'.format(self.pot[tuple(indices)]))
+        output.write('{: 10.8f}\n'.format(self.pot[tuple(indices)]))
 
     
     def plot_2d(self, filename, cmap='gist_earth', resolution=None, axis=(0,1)):
