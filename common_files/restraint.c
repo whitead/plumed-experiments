@@ -129,6 +129,8 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
   //ADW>
   //repeat the entire algorithm for each independent CV   
   int remaining_ind = 1; 
+  //Zero forces, moved here otherwise we overwrite the forces for each independent CV loop iteration
+  zero_forces(mtd_data);
   for(ind_i_c = 0; remaining_ind > 0; ind_i_c++) {
     //<ADW
 
@@ -210,11 +212,6 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
       EXIT();
 #endif
       
-      //ADW>
-      if(colvar.b_treat_independent[i_c] && colvar.natoms[i_c] == 1)
-	independent_remove_hack(i_c, ind_i_c);
-      //<ADW
- 
     }
     
     mtd_data->time=colvar.it*(mtd_data->dt)+mtd_data->time_offset;
@@ -264,9 +261,14 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
     //ADW>
     //handle remaining independent cvs
     remaining_ind = 0;
-    for(i_c=0;i_c<ncv;i_c++)
+    for(i_c=0;i_c<ncv;i_c++) {
+      //remove hack
+      if(colvar.b_treat_independent[i_c] && colvar.natoms[i_c] == 1)
+	independent_remove_hack(i_c, ind_i_c);
+      //count remaining
       if(colvar.b_treat_independent[i_c] && ind_i_c + 1< colvar.natoms[i_c])
 	remaining_ind++;
+    }
     //<ADW
   }
 
@@ -655,6 +657,20 @@ void PREFIX commit_analysis()
 }
 
 //----------------------------------------------------------------------------------------------------------------------
+
+void PREFIX zero_forces(struct mtd_data_s *mtd_data ) {
+  // set to zero all forces
+#ifndef PLUMED_GROMACS
+  int i;
+  for(i=0;i<mtd_data->natoms;i++){
+    mtd_data->force[i][0] = 0.0; 
+    mtd_data->force[i][1] = 0.0;
+    mtd_data->force[i][2] = 0.0;
+  }  
+#endif
+
+}
+
 void PREFIX apply_forces(struct mtd_data_s *mtd_data )
 {
   real ddr, uscale, lscale, dsdt, nor, fact;
@@ -677,15 +693,6 @@ void PREFIX apply_forces(struct mtd_data_s *mtd_data )
       Vrecon+=ene; for(i=0;i<reconinpt.nconst;i++) recon_der[reconinpt.cvlist[i]]=welikedupes_d[i]; 
    } 
 #endif
-#endif
-
-// set to zero all forces
-#ifndef PLUMED_GROMACS
-  for(i=0;i<mtd_data->natoms;i++){
-    mtd_data->force[i][0] = 0.0; 
-    mtd_data->force[i][1] = 0.0;
-    mtd_data->force[i][2] = 0.0;
-  }  
 #endif
 
   for(i_c=0;i_c<colvar.nconst;i_c++){
@@ -714,9 +721,9 @@ void PREFIX apply_forces(struct mtd_data_s *mtd_data )
        f.z=ddr*colvar.myder[i_c][i][2];
        addForce(iat,f);
 #else
-      mtd_data->force[iat][0] += ddr*colvar.myder[i_c][i][0];     // PluMeD forces
-      mtd_data->force[iat][1] += ddr*colvar.myder[i_c][i][1];
-      mtd_data->force[iat][2] += ddr*colvar.myder[i_c][i][2];
+             mtd_data->force[iat][0] += ddr*colvar.myder[i_c][i][0];     // PluMeD forces
+             mtd_data->force[iat][1] += ddr*colvar.myder[i_c][i][1];
+             mtd_data->force[iat][2] += ddr*colvar.myder[i_c][i][2];
 #endif    
     }
   }

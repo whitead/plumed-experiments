@@ -1212,6 +1212,10 @@ extern "C" {
  real hills_engine(real*,real*);
  real hills_engine_dp(int ih,real* ss0,real* dp);
  void hills_force();
+ //Sepearated zero forces from apply forces
+ //ADW>
+ void zero_forces(struct mtd_data_s *mtd_data );
+ //<ADW
  void apply_forces(struct mtd_data_s *mtd_data );
  void inversion_on_boundaries(struct mtd_data_s *mtd_data,int ncv);
  real soft_walls_engine(real*,real*);
