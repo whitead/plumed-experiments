@@ -122,11 +122,13 @@ class Grid(object):
         
         self.pot = np.reshape(self.pot, bins)
       
-        #reflect
-        self.pot = self.pot[::-1]
 
-        #rotate
-        self.pot = np.rot90(self.pot, 3)
+        if(ncv > 1):
+            #reflect
+            self.pot = self.pot[::-1]
+
+            #rotate
+            self.pot = np.rot90(self.pot, 3)
   
 
                 
@@ -334,8 +336,7 @@ class Grid(object):
         #make sure we don't have gigantic numbers to start
         self.pot -= np.max(self.pot)
         grids = [np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)]
-        mesh = np.meshgrid(*grids)
-        Z = np.exp(self.pot)
+        Z = np.exp(-self.pot)
         grids.reverse()
         for g in grids:
             Z = simps(Z, g)
