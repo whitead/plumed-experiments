@@ -294,7 +294,7 @@ class Grid(object):
             #check if we are at an end
             if(end_fxn is not None):
                 #check if any index is at an end
-                if(reduce(lambda x,y: x or y, [x == y for x,y in zip(indices,self.nbins)])):
+                if(reduce(lambda x,y: x or y, [x == y for x,y in zip(indices,self.nbins)], False)):
                     for i in range(self.nbins[dim] + 1):
                         end_fxn(Grid._prepend_emit(indices, i))
                 else:
