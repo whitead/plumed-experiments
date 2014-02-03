@@ -84,7 +84,6 @@ class Grid(object):
         for x in data:
             indexs = self.np_to_index(x[:-1])
             self.pot[tuple(indexs)] += x[-1]
-
         self.set_bin_number(old_bins)
         
 

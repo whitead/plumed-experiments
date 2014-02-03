@@ -131,6 +131,7 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
   int remaining_ind = 1; 
   //Zero forces, moved here otherwise we overwrite the forces for each independent CV loop iteration
   zero_forces(mtd_data);
+
   for(ind_i_c = 0; remaining_ind > 0; ind_i_c++) {
     //<ADW
 
