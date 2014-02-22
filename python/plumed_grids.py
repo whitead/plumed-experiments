@@ -341,7 +341,37 @@ class Grid(object):
         for g in grids:
             Z = simps(Z, g)
         self.pot -= np.log(Z)
-    
+
+    def integrate_region(self, region_function):
+        """
+        Integrates a region given by the function
+
+        region_function will be passed an array giving the coordinates of 
+        a single point (N numbers per N dimensions). Simpson's Rule is 
+        used for integration.
+        """
+        #make sure we don't have gigantic numbers to start
+        self.pot -= np.max(self.pot)
+        Z = np.exp(-self.pot)
+
+
+        if(self.meshgrid is None):
+            self.meshgrid = np.meshgrid(*[np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)], indexing='ij')
+        for x in np.nditer(self.meshgrid):
+            indexs = self.np_to_index(x)
+            if(not region_function(x)):
+                Z[tuple(indexs)] = 0
+
+        grids = [np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)]        
+        grids.reverse()
+        for g in grids:
+            Z = simps(Z,g)
+        
+        return -np.log(Z)
+
+
+        
+        
 
     def write(self, output):
         output.write('#! FORCE 0\n')
