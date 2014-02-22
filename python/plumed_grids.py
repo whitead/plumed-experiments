@@ -244,6 +244,9 @@ class Grid(object):
         return self.pot[tuple(index)]
 
     def add(self, other_grid):
+        if(np.shape(self.pot) == np.shape(other_grid.pot)):
+            self.pot += other_grid.pot
+            return
         if(self.meshgrid is None):
             self.meshgrid = np.meshgrid(*[np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)], indexing='ij')
         for x in np.nditer(self.meshgrid):
