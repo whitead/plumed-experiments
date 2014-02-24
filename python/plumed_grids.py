@@ -314,8 +314,7 @@ class Grid(object):
             output.write('{: 10.8f} '.format(j * self.dx[i] + self.min[i]))
         #copy the last bin to the boundary
         indices = [i if i < nb else nb - 1 for i,nb in zip(indices,self.nbins)]
-        output.write('{: 10.8f}\n'.format(self.pot[tuple(indices)]))
-
+        output.write('{: 10.8f}\n'.format(self.pot[tuple(indices)]))        
     
     def plot_2d(self, filename, cmap='gist_earth', resolution=None, axis=(0,1)):
         assert self.dims >= 2
@@ -332,6 +331,7 @@ class Grid(object):
         plt.imshow(data, interpolation='none', cmap=cmap, extent=[self.min[axis[0]], self.max[axis[0]],self.max[axis[1]],self.min[axis[1]]])
         if(resolution is not None):
             self.set_bin_number(old_bins)
+        plt.colorbar()
         plt.savefig(filename)
 
 
@@ -457,23 +457,21 @@ def load_plumed_grid(filename):
     g.read_plumed_grid(filename)
     g.plot_2d("plot.png")
 
-def plot_free_energy(bias_grid, target, boltzmann_factor=2, bias_factor=1):
+def plot_free_energy(bias_grid, target, boltzmann_factor=1, bias_factor=1):
     g = Grid()
     g.read_plumed_grid(bias_grid)
     g.pot *= (bias_factor) / (bias_factor - 1)
-    g.normalize()
+    g.plot_2d("uncorrected_free_energy.png")
 
     t = Grid()
     t.read_plumed_grid(target)
-    t.pot *= boltzmann_factor    
-    t.normalize()
+    t.pot *= -boltzmann_factor    
 
-    g.write(open("bias_before_add.grid", "w"))
-    t.write(open("target_before_add.grid", "w"))
-    g.add(t)
-    g.pot *= -1.
-    g.plot_2d("free_energy.png")
-    g.write(open("free_energy.grid", "w"))
+    t.add(g)
+
+    t.pot -= np.min(t.pot)
+    t.plot_2d("corrected_free_energy.png")
+#    g.write(open("free_energy.grid", "w"))
     
     
 
