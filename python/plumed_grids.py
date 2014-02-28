@@ -339,6 +339,15 @@ class Grid(object):
         plt.colorbar()
         plt.savefig(filename)
 
+    def remove_target_bias(self, target_filename, bias_factor=2):
+        self.pot *= (bias_factor) / (bias_factor - 1)
+        t = Grid()
+        t.read_plumed_grid(target_filename)
+        t.pot *= -1.0
+        self.add(t)
+        self.pot -= np.min(self.pot)
+        
+        
 
     def normalize(self):
         #make sure we don't have gigantic numbers to start
@@ -364,7 +373,8 @@ class Grid(object):
 
 
         if(self.meshgrid is None):
-            self.meshgrid = np.meshgrid(*[np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)], indexing='ij')
+#            self.meshgrid = np.meshgrid(*[np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)], indexing='ij')
+            self.meshgrid = np.meshgrid(*[np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)])
         for x in np.nditer(self.meshgrid):
             indexs = self.np_to_index(x)
             if(not region_function(x)):
@@ -461,24 +471,6 @@ def load_plumed_grid(filename):
     g = Grid()
     g.read_plumed_grid(filename)
     g.plot_2d("plot.png")
-
-def plot_free_energy(bias_grid, target, boltzmann_factor=1, bias_factor=1):
-    g = Grid()
-    g.read_plumed_grid(bias_grid)
-    g.pot *= (bias_factor) / (bias_factor - 1)
-    g.plot_2d("uncorrected_free_energy.png")
-
-    t = Grid()
-    t.read_plumed_grid(target)
-    t.pot *= -boltzmann_factor    
-
-    t.add(g)
-
-    t.pot -= np.min(t.pot)
-    t.plot_2d("corrected_free_energy.png")
-#    g.write(open("free_energy.grid", "w"))
-    
-    
 
 if __name__ == "__main__":
     #test()
