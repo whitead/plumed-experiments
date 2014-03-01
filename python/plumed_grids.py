@@ -131,6 +131,15 @@ class Grid(object):
             self.pot = np.rot90(self.pot, 3)
   
 
+
+    def add_target_correction(self, target_file, boltzmann_factor, bias_factor):
+        t = Grid()
+        t.read_plumed_grid(target_file)
+        t.pot *= boltzmann_factor
+        self.pot *= -(bias_factor) / (bias_factor - 1)
+        self.add(t)
+        self.pot -= np.min(self)
+        
                 
     def __str__(self):
         return "{} dimension Grid object from {} to {} with {} bins. Periodic = {}, Types = {}".format(self.dims, self.min, self.max, self.nbins, self.periodic, self.types)
@@ -316,7 +325,7 @@ class Grid(object):
         indices = [i if i < nb else nb - 1 for i,nb in zip(indices,self.nbins)]
         output.write('{: 10.8f}\n'.format(self.pot[tuple(indices)]))        
     
-    def plot_2d(self, filename, cmap='gist_earth', resolution=None, axis=(0,1)):
+    def plot_2d(self, filename, cmap='gist_earth', resolution=None, axis=(1,0)):
         assert self.dims >= 2
         import matplotlib.pyplot as plt
         old_bins = self.nbins
@@ -328,11 +337,33 @@ class Grid(object):
             data = self.pot
         if(resolution is not None):
             self.set_bin_number([resolution if x in axis else self.nbins[x] for x in range(self.dims)])
-        plt.imshow(data, interpolation='none', cmap=cmap, extent=[self.min[axis[0]], self.max[axis[0]],self.max[axis[1]],self.min[axis[1]]])
+        plt.imshow(np.swapaxes(data, 0, axis[0]), interpolation='none', cmap=cmap, extent=[self.min[axis[0]], self.max[axis[0]],self.max[axis[1]],self.min[axis[1]]])
         if(resolution is not None):
             self.set_bin_number(old_bins)
         plt.colorbar()
         plt.savefig(filename)
+
+
+    def plot_2d_region(self, filename, *region_functions):
+        assert self.dims >= 2
+        cmap = 'gist_earth'
+        axis=(1,0)
+        if(self.meshgrid is None):
+            self.meshgrid = np.meshgrid(*[np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)], indexing='ij')
+
+        data = np.zeros(np.shape(self.pot))
+        for r in region_functions:
+            for x in np.nditer(self.meshgrid):
+                indexs = self.np_to_index(x)
+                if(r(x)):
+                    data[tuple(indexs)] = 1
+
+        import matplotlib.pyplot as plt
+        old_bins = self.nbins
+        plt.imshow(np.swapaxes(data, 0, axis[0]), interpolation='none', cmap=cmap, extent=[self.min[axis[0]], self.max[axis[0]],self.max[axis[1]],self.min[axis[1]]])
+        plt.savefig(filename)
+
+        
 
 
     def normalize(self):
@@ -372,8 +403,6 @@ class Grid(object):
         
         return -np.log(Z)
 
-
-        
         
 
     def write(self, output):
@@ -457,22 +486,24 @@ def load_plumed_grid(filename):
     g.read_plumed_grid(filename)
     g.plot_2d("plot.png")
 
-def plot_free_energy(bias_grid, target, boltzmann_factor=1, bias_factor=1):
+def plot_free_energy(bias_grid, target, boltzmann_factor=2, bias_factor=1):
     g = Grid()
     g.read_plumed_grid(bias_grid)
     g.pot *= (bias_factor) / (bias_factor - 1)
-    g.plot_2d("uncorrected_free_energy.png")
 
     t = Grid()
     t.read_plumed_grid(target)
-    t.pot *= -boltzmann_factor    
+    t.pot *= boltzmann_factor    
+    t.normalize()
 
-    t.add(g)
+    g.write(open("bias_before_add.grid", "w"))
+    t.write(open("target_before_add.grid", "w"))
+    g.add(t)
+    g.pot *= -1.
+    g.plot_2d("free_energy.png")
+    g.write(open("free_energy.grid", "w"))
 
-    t.pot -= np.min(t.pot)
-    t.plot_2d("corrected_free_energy.png")
-#    g.write(open("free_energy.grid", "w"))
-    
+    return 
     
 
 if __name__ == "__main__":
