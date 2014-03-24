@@ -294,8 +294,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
   // <JFD
   // ADW>
   if(logical.target_distribution) {
-    //NO units of kT since this comes from entropy, not energy    
-    this_ww /= exp(grid_getstuff(&target_grid, colvar.ss0,  NULL));
+    this_ww /= exp(mtd_data->boltz * grid_getstuff(&target_grid, colvar.ss0,  NULL));
     if(logical.welltemp)//to prevent very large hills
       this_ww = fmin(fmax(mtd_data->boltz, hills.wwr), this_ww);
   }
