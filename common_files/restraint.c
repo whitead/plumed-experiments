@@ -39,18 +39,32 @@ int independent_hack_cache_natoms;
 int independent_hack_cache_atom;
 
 void PREFIX independent_insert_hack(int i_c, int atom_index){
-  
-  //replace atom number and position with cached version
-  independent_hack_cache_natoms = colvar.natoms[i_c];
-  colvar.natoms[i_c] = 1;
-  independent_hack_cache_atom = colvar.cvatoms[i_c][0];
-  colvar.cvatoms[i_c][0] = colvar.cvatoms[i_c][atom_index];
+
+  if(type_s[i_c] == 32) { //restraint_position 
+    //replace atom number and position with cached version
+    independent_hack_cache_natoms = colvar.natoms[i_c];
+    colvar.natoms[i_c] = 1;
+    independent_hack_cache_atom = colvar.cvatoms[i_c][0];
+    colvar.cvatoms[i_c][0] = colvar.cvatoms[i_c][atom_index];
+  } else if(type_s[i_c] == 1) { //restraint_dist
+    //replace atom number and position with cached version for second list 
+    independent_hack_cache_natoms = colvar.natoms[i_c];
+    colvar.natoms[i_c] = 1;
+    //second list starts at colvar.list[i_c][0]
+    independent_hack_cache_atom = colvar.cvatoms[i_c][colvar.list[i_c][0]];
+    colvar.cvatoms[i_c][colvar.list[i_c][0]] = colvar.cvatoms[i_c][colvar.list[i_c][0] + atom_index]    
+  }
 }
 
 void PREFIX independent_remove_hack(int i_c, int atom_index){
    //swap values with the cache
-  colvar.natoms[i_c] = independent_hack_cache_natoms;
-  colvar.cvatoms[i_c][atom_index] = independent_hack_cache_atom;
+  if(type_s[i_c] == 32) { //restraint_position 
+    colvar.natoms[i_c] = independent_hack_cache_natoms;
+    colvar.cvatoms[i_c][atom_index] = independent_hack_cache_atom;
+  } else if(type_s[i_c] == 1) { //restraint_position
+    colvar.natoms[i_c] = independent_hack_cache_natoms;
+    colvar.cvatoms[i_c][colvar.list[i_c][0] + atom_index] = independent_hack_cache_atom;
+  }
 }
 
 //<ADW
