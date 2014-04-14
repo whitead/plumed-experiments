@@ -36,34 +36,57 @@
 //ADW>
 
 int independent_hack_cache_natoms;
+int independent_hack_cache_natoms2;
 int independent_hack_cache_atom;
+int independent_hack_cache_atom2;
 
 void PREFIX independent_insert_hack(int i_c, int atom_index){
 
-  if(type_s[i_c] == 32) { //restraint_position 
+  if(colvar.type_s[i_c] == 32) { //restraint_position 
+
     //replace atom number and position with cached version
     independent_hack_cache_natoms = colvar.natoms[i_c];
     colvar.natoms[i_c] = 1;
     independent_hack_cache_atom = colvar.cvatoms[i_c][0];
     colvar.cvatoms[i_c][0] = colvar.cvatoms[i_c][atom_index];
-  } else if(type_s[i_c] == 1) { //restraint_dist
-    //replace atom number and position with cached version for second list 
+
+  } else if(colvar.type_s[i_c] == 1) { //restraint_dist
+
+    //this is a pair-wise list that needs to be overwritten so one pair
+    //is processed at a time
+    
+    
+    //first pair
+    independent_hack_cache_atom = colvar.cvatoms[i_c][atom_index % colvar.list[i_c][0]];
+    //second pair
+    independent_hack_cache_atom2 = colvar.cvatoms[i_c][colvar.natoms[i_c] + atom_index / colvar.list[i_c][0]];
+    
+    //store the length of the two lits
     independent_hack_cache_natoms = colvar.natoms[i_c];
+    independent_hack_cache_natoms2 = colvar.list[i_c][0];
+
+    //make lengths 1
     colvar.natoms[i_c] = 1;
-    //second list starts at colvar.list[i_c][0]
-    independent_hack_cache_atom = colvar.cvatoms[i_c][colvar.list[i_c][0]];
-    colvar.cvatoms[i_c][colvar.list[i_c][0]] = colvar.cvatoms[i_c][colvar.list[i_c][0] + atom_index]    
+    colvar.list[i_c][0] = 1;
+
   }
 }
 
 void PREFIX independent_remove_hack(int i_c, int atom_index){
    //swap values with the cache
-  if(type_s[i_c] == 32) { //restraint_position 
+  if(colvar.type_s[i_c] == 32) { //restraint_position 
     colvar.natoms[i_c] = independent_hack_cache_natoms;
     colvar.cvatoms[i_c][atom_index] = independent_hack_cache_atom;
-  } else if(type_s[i_c] == 1) { //restraint_position
+  } else if(colvar.type_s[i_c] == 1) { //restraint_position
+    //first pair
+    colvar.cvatoms[i_c][atom_index % colvar.list[i_c][0]] = independent_hack_cache_atom;
+    //second pair
+    colvar.cvatoms[i_c][colvar.natoms[i_c] + atom_index / colvar.list[i_c][0]] = independent_hack_cache_atom2;
+    
+    //store the length of the two lits
     colvar.natoms[i_c] = independent_hack_cache_natoms;
-    colvar.cvatoms[i_c][colvar.list[i_c][0] + atom_index] = independent_hack_cache_atom;
+    colvar.list[i_c][0] = independent_hack_cache_natoms2;
+
   }
 }
 
@@ -281,8 +304,18 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
       if(colvar.b_treat_independent[i_c] && colvar.natoms[i_c] == 1)
 	independent_remove_hack(i_c, ind_i_c);
       //count remaining
-      if(colvar.b_treat_independent[i_c] && ind_i_c + 1< colvar.natoms[i_c])
-	remaining_ind++;
+      if(colvar.b_treat_independent[i_c]) {
+	switch(colvar.type_s[i_c]) {
+	  case 1: //restraint dist
+	    if(ind_i_c < colvar.natoms[i_c] * colvar.list[i_c][0])
+	      remaining_ind++;
+	    break;
+	  case 32: //restraint position
+	    if(ind_i_c < colvar.natoms[i_c])
+	      remaining_ind++;
+	    break;	    	   
+	}
+      }
     }
     //<ADW
   }
