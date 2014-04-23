@@ -1299,8 +1299,8 @@ extern "C" {
  // <JFD
 // CV routines
  //ADW>
- void independent_insert_hack(int i_c, int atom_index);
- void independent_remove_hack(int i_c, int atom_index);
+ int independent_insert_hack(int i_c, int atom_index);
+ int independent_remove_hack(int i_c, int atom_index);
  //ADW<
  void restraint(struct mtd_data_s *mtd_data);
  void test_derivatives(struct mtd_data_s *mtd_data);

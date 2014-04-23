@@ -40,54 +40,94 @@ int independent_hack_cache_natoms2;
 int independent_hack_cache_atom;
 int independent_hack_cache_atom2;
 
-void PREFIX independent_insert_hack(int i_c, int atom_index){
+/*
+ * Makes a CV only have one atom. Returns 1 if the given atom_index is
+ * valid. It returns 0 if it should be called again and -1 if finished
+ */
+int PREFIX independent_insert_hack(int i_c, int atom_index){
 
-  if(colvar.type_s[i_c] == 32) { //restraint_position 
+  switch(colvar.type_s[i_c]){ 
+  case 32:
+    //restraint_position 
+    if(atom_index < colvar.natoms[i_c]) {
+      //replace atom number and position with cached version
+      independent_hack_cache_natoms = colvar.natoms[i_c];
+      colvar.natoms[i_c] = 1;
+      independent_hack_cache_atom = colvar.cvatoms[i_c][0];
+      colvar.cvatoms[i_c][0] = colvar.cvatoms[i_c][atom_index];
+      return 1;
+    }
+    break;
+  case 1:
+    //restraint_dist
+    // colvar.list is length of list 1. colvar.natoms is length of list 1 + 2
 
-    //replace atom number and position with cached version
-    independent_hack_cache_natoms = colvar.natoms[i_c];
-    colvar.natoms[i_c] = 1;
-    independent_hack_cache_atom = colvar.cvatoms[i_c][0];
-    colvar.cvatoms[i_c][0] = colvar.cvatoms[i_c][atom_index];
+    //check if we need it.
+    if(atom_index < (colvar.natoms[i_c] - colvar.list[i_c][0]) * colvar.list[i_c][0]) {
 
-  } else if(colvar.type_s[i_c] == 1) { //restraint_dist
-
-    //this is a pair-wise list that needs to be overwritten so one pair
-    //is processed at a time
+      //Check if the pair is the same particle
+      if(colvar.cvatoms[i_c][atom_index % colvar.list[i_c][0]] >= 
+	 colvar.cvatoms[i_c][colvar.natoms[i_c] - colvar.list[i_c][0]
+			     + atom_index / colvar.list[i_c][0]])
+	return 0;
     
-    
-    //first pair
-    independent_hack_cache_atom = colvar.cvatoms[i_c][atom_index % colvar.list[i_c][0]];
-    //second pair
-    independent_hack_cache_atom2 = colvar.cvatoms[i_c][colvar.natoms[i_c] + atom_index / colvar.list[i_c][0]];
-    
-    //store the length of the two lits
-    independent_hack_cache_natoms = colvar.natoms[i_c];
-    independent_hack_cache_natoms2 = colvar.list[i_c][0];
+      //this is a pair-wise list that needs to be overwritten so one pair
+      //is processed at a time        
+      //first pair
+      independent_hack_cache_atom = colvar.cvatoms[i_c][0];
+      colvar.cvatoms[i_c][0] = colvar.cvatoms[i_c][atom_index % colvar.list[i_c][0]];
+      //second pair
+      independent_hack_cache_atom2 = colvar.cvatoms[i_c][1];
+      colvar.cvatoms[i_c][1] = colvar.cvatoms[i_c][colvar.natoms[i_c] - colvar.list[i_c][0]
+							  + atom_index / colvar.list[i_c][0]];
 
-    //make lengths 1
-    colvar.natoms[i_c] = 1;
-    colvar.list[i_c][0] = 1;
+      
+      //store the length of the two lits
+      independent_hack_cache_natoms = colvar.natoms[i_c];
+      independent_hack_cache_natoms2 = colvar.list[i_c][0];
+      
+      //make lengths 1
+      colvar.list[i_c][0] = 1;
+      colvar.natoms[i_c] = 2;
 
+      return 1;
+    }
+    break;
   }
+  return -1;
 }
 
-void PREFIX independent_remove_hack(int i_c, int atom_index){
+/*
+ * Undoes the changes from independent_insert_hack. Returns 1 an
+ * insertion was done, and thus forces should be added.
+ */
+int PREFIX independent_remove_hack(int i_c, int atom_index){
    //swap values with the cache
-  if(colvar.type_s[i_c] == 32) { //restraint_position 
-    colvar.natoms[i_c] = independent_hack_cache_natoms;
-    colvar.cvatoms[i_c][atom_index] = independent_hack_cache_atom;
-  } else if(colvar.type_s[i_c] == 1) { //restraint_position
-    //first pair
-    colvar.cvatoms[i_c][atom_index % colvar.list[i_c][0]] = independent_hack_cache_atom;
-    //second pair
-    colvar.cvatoms[i_c][colvar.natoms[i_c] + atom_index / colvar.list[i_c][0]] = independent_hack_cache_atom2;
-    
-    //store the length of the two lits
-    colvar.natoms[i_c] = independent_hack_cache_natoms;
-    colvar.list[i_c][0] = independent_hack_cache_natoms2;
 
+  switch(colvar.type_s[i_c]) { 
+  case 32:
+    //restraint_position 
+    if(colvar.natoms[i_c] == 1) {
+      colvar.natoms[i_c] = independent_hack_cache_natoms;
+      colvar.cvatoms[i_c][atom_index] = independent_hack_cache_atom;
+      return 1;
+    }
+    break;
+  case 1:
+    //restraint_position
+    if(colvar.list[i_c][0] == 1) {
+      //first pair
+      colvar.cvatoms[i_c][atom_index % colvar.list[i_c][0]] = independent_hack_cache_atom;
+      //second pair
+      colvar.cvatoms[i_c][colvar.natoms[i_c] + atom_index / colvar.list[i_c][0]] = independent_hack_cache_atom2;    
+      //store the length of the two lits
+      colvar.natoms[i_c] = independent_hack_cache_natoms;
+      colvar.list[i_c][0] = independent_hack_cache_natoms2;
+      return 1;
+    }
+    break;
   }
+  return 0;
 }
 
 //<ADW
@@ -166,10 +206,24 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
   //ADW>
   //repeat the entire algorithm for each independent CV   
   int remaining_ind = 1; 
+  int hack_result;
   //Zero forces, moved here otherwise we overwrite the forces for each independent CV loop iteration
   zero_forces(mtd_data);
 
   for(ind_i_c = 0; remaining_ind > 0; ind_i_c++) {
+
+    //try insert hack and see if more are necessary
+    remaining_ind = 0;
+    for(i_c=0;i_c<ncv;i_c++) {
+      if(colvar.b_treat_independent[i_c]) {
+	do{
+	  hack_result = independent_insert_hack(i_c, ind_i_c);
+	} while(hack_result == 0);
+	if(hack_result == -1)
+	  return;
+      }
+      remaining_ind++;
+    }
     //<ADW
 
     // this cycle is intended to calculate CVs values and derivatives
@@ -189,12 +243,6 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
       
       //fprintf(mtd_data->fplog,"CALCULATING CV %d\n",i_c); 
       //fflush(mtd_data->fplog); 
-
-      //ADW>
-      //handle independently treated CVs
-      if(colvar.b_treat_independent[i_c] && colvar.natoms[i_c] > ind_i_c)
-	independent_insert_hack(i_c, ind_i_c);
-      //<ADW
       
       switch(colvar.type_s[i_c]){
 	// geometric CVs
@@ -251,6 +299,13 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
 #endif
       
     }
+
+    //ADW>
+    //handle independently treated CVs
+    if(colvar.b_treat_independent[i_c])
+      independent_remove_hack(i_c, ind_i_c);
+    //<ADW
+
     
     mtd_data->time=colvar.it*(mtd_data->dt)+mtd_data->time_offset;
     
@@ -296,28 +351,6 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
     
     if(ntp) print_colvar_enercv(mtd_data->time);	        	// dump COLVAR
 
-    //ADW>
-    //handle remaining independent cvs
-    remaining_ind = 0;
-    for(i_c=0;i_c<ncv;i_c++) {
-      //remove hack
-      if(colvar.b_treat_independent[i_c] && colvar.natoms[i_c] == 1)
-	independent_remove_hack(i_c, ind_i_c);
-      //count remaining
-      if(colvar.b_treat_independent[i_c]) {
-	switch(colvar.type_s[i_c]) {
-	  case 1: //restraint dist
-	    if(ind_i_c < colvar.natoms[i_c] * colvar.list[i_c][0])
-	      remaining_ind++;
-	    break;
-	  case 32: //restraint position
-	    if(ind_i_c < colvar.natoms[i_c])
-	      remaining_ind++;
-	    break;	    	   
-	}
-      }
-    }
-    //<ADW
   }
 
   if(colvar.pg.nlist!=0)calc_projections( &(colvar.pg)); 
