@@ -36,6 +36,11 @@
 // This routine calculates, from the variaton of a collective variable, the width
 // of the gaussian hills along the CV direction.
 
+inline
+int int_floor(real number) {
+  return (int) number < 0.0 ? -ceil(fabs(number)) : floor(number);                                                                   
+}                                                                                                                                    
+                                                                         
 void PREFIX hills_adapt()
 {
   real fluct, step;
@@ -883,10 +888,9 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
     flag = 0;
     for(j = 0; j < ncv; j++) {
       xx[j] = ss[grid->index[j]] - grid->minilbox[j] + grid->dx[j] * grid->one2multi[i][j];
-      if(grid->period[j]) xx[j] -= grid->lbox[j] * rint(xx[j]/grid->lbox[j]);
       index_nd[j] = floor((xx[j]-grid->min[j])/grid->dx[j]);
-      //with single precision, it is possible that xx - min = 2 * min if xx[j] is very close to min
-      if(index_nd[j]<0 || index_nd[j] >=grid->bin[j])  flag=1;
+      if(grid->period[j]) index_nd[j] -= grid->bin[j] * int_floor((real) index_nd[j]/grid->bin[j]);
+      if(index_nd[j]<0 || index_nd[j] >=grid->bin[j] && !grid->period[j])  flag=1;
     }
     if(flag == 1) continue; // out of grid 
 
@@ -1044,8 +1048,8 @@ real PREFIX grid_getstuff(struct grid_s *grid, real* ss0, real* force)
       fprintf(stderr, "Bad grid value = %f\n", xx[grid->index[j]]);	
       plumed_error("You are outside the GRID!. Please increase GRID size.");
   }
-  if(grid->period[j])  xx[j] -= grid->lbox[j] * rint(xx[j]/grid->lbox[j]);
   index_nd[j] = floor((xx[j]-grid->min[j])/grid->dx[j]);
+  if(grid->period[j]) index_nd[j] -= grid->bin[j] * int_floor((real) index_nd[j]/grid->bin[j]);
  }
 
 // from multidimensional index to mono
