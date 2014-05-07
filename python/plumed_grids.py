@@ -94,7 +94,7 @@ class Grid(object):
         #I'll ignore the force for now
         with open(filename, 'r') as f:
             line = f.readline()
-            while(line.startswith('#!')):
+            while(line.find('#!') != -1):
                 if(line.find('TYPE') != -1):
                     self.types = [int(x) for x in re.findall(r'\d{1,}', line)]
                 if(line.find('MIN') != -1):
