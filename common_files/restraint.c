@@ -207,11 +207,11 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
   //ADW>
   //repeat the entire algorithm for each independent CV   
   int hack_result;
-  int success = 0;
+  int remaining_ind = 1;
   //Zero forces, moved here otherwise we overwrite the forces for each independent CV loop iteration
   zero_forces(mtd_data);
 
-  for(ind_i_c = 0;; ind_i_c++) {
+  for(ind_i_c = 0; ind_i_c < remaining_ind; ind_i_c++) {
 
     //try insert hack and see if more are necessary
     for(i_c=0;i_c<ncv;i_c++) {
@@ -219,8 +219,6 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
 	hack_result = independent_insert_hack(i_c, ind_i_c);//need to increment atom index
 	if(hack_result != 1)
 	  break;
-	else
-	  success++;
       }
     }
 
@@ -230,8 +228,10 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
 	if(colvar.b_treat_independent[i_c])
 	  independent_remove_hack(i_c, ind_i_c);
 
-      if(hack_result == 0)
+      if(hack_result == 0) {
+	remaining_ind++;
 	continue; //try again
+      }
       else if(hack_result == -1)
 	break; //we're done
     }
