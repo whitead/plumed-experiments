@@ -296,7 +296,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
   if(logical.target_distribution) {
     this_ww /= exp(mtd_data->boltz * grid_getstuff(&target_grid, colvar.ss0,  NULL));
     if(logical.welltemp)//to prevent very large hills
-      this_ww = fmin(fmax(mtd_data->boltz, hills.wwr), this_ww);
+      this_ww = fmin(hills.wwr, this_ww);
   }
   
   // <ADW
