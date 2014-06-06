@@ -301,7 +301,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
   if(logical.target_distribution) {
     this_ww /= exp(mtd_data->boltz * grid_getstuff(&target_grid, colvar.ss0,  NULL));
     if(logical.welltemp)//to prevent very large hills
-      this_ww = fmin(fmax(mtd_data->boltz, hills.wwr), this_ww);
+      this_ww = fmin(hills.wwr, this_ww);
   }
   
   // <ADW
@@ -888,9 +888,10 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
     flag = 0;
     for(j = 0; j < ncv; j++) {
       xx[j] = ss[grid->index[j]] - grid->minilbox[j] + grid->dx[j] * grid->one2multi[i][j];
+      if(grid->period[j]) xx[j] -= grid->lbox[j] * rint(xx[j]/grid->lbox[j]);
       index_nd[j] = floor((xx[j]-grid->min[j])/grid->dx[j]);
-      if(grid->period[j]) index_nd[j] -= grid->bin[j] * int_floor((real) index_nd[j]/grid->bin[j]);
-      if(index_nd[j]<0 || index_nd[j] >=grid->bin[j] && !grid->period[j])  flag=1;
+      //with single precision, it is possible that xx - min = 2 * min if xx[j] is very close to min
+      if(index_nd[j]<0 || index_nd[j] >=grid->bin[j])  flag=1;
     }
     if(flag == 1) continue; // out of grid 
 

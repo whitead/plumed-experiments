@@ -36,21 +36,99 @@
 //ADW>
 
 int independent_hack_cache_natoms;
+int independent_hack_cache_natoms2;
 int independent_hack_cache_atom;
+int independent_hack_cache_atom2;
 
-void PREFIX independent_insert_hack(int i_c, int atom_index){
-  
-  //replace atom number and position with cached version
-  independent_hack_cache_natoms = colvar.natoms[i_c];
-  colvar.natoms[i_c] = 1;
-  independent_hack_cache_atom = colvar.cvatoms[i_c][0];
-  colvar.cvatoms[i_c][0] = colvar.cvatoms[i_c][atom_index];
+/*
+ * Makes a CV only have one atom. Returns 1 if the given atom_index is
+ * valid. It returns 0 if it should be called again and -1 if finished
+ */
+int PREFIX independent_insert_hack(int i_c, int atom_index){
+
+  switch(colvar.type_s[i_c]){ 
+  case 32:
+    //restraint_position 
+    if(atom_index < colvar.natoms[i_c]) {
+      //replace atom number and position with cached version
+      independent_hack_cache_natoms = colvar.natoms[i_c];
+      colvar.natoms[i_c] = 1;
+      independent_hack_cache_atom = colvar.cvatoms[i_c][0];
+      colvar.cvatoms[i_c][0] = colvar.cvatoms[i_c][atom_index];
+      return 1;
+    }
+    break;
+  case 1:
+    //restraint_dist
+    // colvar.list is length of list 1. colvar.natoms is length of list 1 + 2
+
+    //check if we're done
+    if(atom_index < (colvar.natoms[i_c] - colvar.list[i_c][0]) * colvar.list[i_c][0]) {
+
+      int index1 = atom_index % colvar.list[i_c][0];
+      int index2 = colvar.natoms[i_c] - colvar.list[i_c][0]
+	+ atom_index / colvar.list[i_c][0];
+
+      //Check if the pair is the same particle
+      if(colvar.cvatoms[i_c][index1] == colvar.cvatoms[i_c][index2])
+	return 0;
+    
+      //this is a pair-wise list that needs to be overwritten so one pair
+      //is processed at a time        
+      //first pair
+      independent_hack_cache_atom = colvar.cvatoms[i_c][0];
+      colvar.cvatoms[i_c][0] = colvar.cvatoms[i_c][index1];
+      //second pair
+      independent_hack_cache_atom2 = colvar.cvatoms[i_c][1];
+      colvar.cvatoms[i_c][1] = colvar.cvatoms[i_c][index2];
+
+      
+      //store the length of the two lits
+      independent_hack_cache_natoms = colvar.natoms[i_c];
+      independent_hack_cache_natoms2 = colvar.list[i_c][0];
+      
+      //make lengths 1
+      colvar.list[i_c][0] = 1;
+      colvar.natoms[i_c] = 2;
+
+      return 1;
+    }
+    break;
+  }
+  return -1;
 }
 
-void PREFIX independent_remove_hack(int i_c, int atom_index){
+/*
+ * Undoes the changes from independent_insert_hack. Returns 1 an
+ * insertion was done, and thus forces should be added.
+ */
+int PREFIX independent_remove_hack(int i_c, int atom_index){
    //swap values with the cache
-  colvar.natoms[i_c] = independent_hack_cache_natoms;
-  colvar.cvatoms[i_c][atom_index] = independent_hack_cache_atom;
+
+  switch(colvar.type_s[i_c]) { 
+  case 32:
+    //restraint_position 
+    if(colvar.natoms[i_c] == 1) {
+      colvar.natoms[i_c] = independent_hack_cache_natoms;
+      colvar.cvatoms[i_c][atom_index] = independent_hack_cache_atom;
+      return 1;
+    }
+    break;
+  case 1:
+    //restraint_position
+    if(colvar.list[i_c][0] == 1) {
+      //first pair
+      colvar.cvatoms[i_c][0] = independent_hack_cache_atom;
+      //second pair
+      colvar.cvatoms[i_c][1] = independent_hack_cache_atom2;
+      //store the length of the two lits
+      colvar.natoms[i_c] = independent_hack_cache_natoms;
+      colvar.list[i_c][0] = independent_hack_cache_natoms2;
+      return 1;
+    }
+    break;
+  }
+  return 0;
 }
 
 //<ADW
@@ -128,8 +206,35 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
 
   //ADW>
   //repeat the entire algorithm for each independent CV   
-  int remaining_ind = 1; 
-  for(ind_i_c = 0; remaining_ind > 0; ind_i_c++) {
+  int hack_result;
+  int remaining_ind = 1;
+  //Zero forces, moved here otherwise we overwrite the forces for each independent CV loop iteration
+  zero_forces(mtd_data);
+
+  for(ind_i_c = 0; ind_i_c < remaining_ind; ind_i_c++) {
+
+    //try insert hack and see if more are necessary
+    for(i_c=0;i_c<ncv;i_c++) {
+      if(colvar.b_treat_independent[i_c]) {
+	hack_result = independent_insert_hack(i_c, ind_i_c);//need to increment atom index
+	if(hack_result != 1)
+	  break;
+      }
+    }
+
+    //remove hacks if we didn't succeed
+    if(hack_result != 1)  {
+      for(i_c=0;i_c<ncv;i_c++)
+	if(colvar.b_treat_independent[i_c])
+	  independent_remove_hack(i_c, ind_i_c);
+
+      if(hack_result == 0) {
+	remaining_ind++;
+	continue; //try again
+      }
+      else if(hack_result == -1)
+	break; //we're done
+    }
     //<ADW
 
     // this cycle is intended to calculate CVs values and derivatives
@@ -149,12 +254,6 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
       
       //fprintf(mtd_data->fplog,"CALCULATING CV %d\n",i_c); 
       //fflush(mtd_data->fplog); 
-
-      //ADW>
-      //handle independently treated CVs
-      if(colvar.b_treat_independent[i_c] && colvar.natoms[i_c] > ind_i_c)
-	independent_insert_hack(i_c, ind_i_c);
-      //<ADW
       
       switch(colvar.type_s[i_c]){
 	// geometric CVs
@@ -209,9 +308,10 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
       fprintf(mtd_data->fplog,"|---END OF CALL \n");
       EXIT();
 #endif
-      
+     
       //ADW>
-      if(colvar.b_treat_independent[i_c] && colvar.natoms[i_c] == 1)
+      //handle independently treated CVs
+      if(colvar.b_treat_independent[i_c])
 	independent_remove_hack(i_c, ind_i_c);
       //<ADW
  
@@ -261,13 +361,6 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
     
     if(ntp) print_colvar_enercv(mtd_data->time);	        	// dump COLVAR
 
-    //ADW>
-    //handle remaining independent cvs
-    remaining_ind = 0;
-    for(i_c=0;i_c<ncv;i_c++)
-      if(colvar.b_treat_independent[i_c] && ind_i_c + 1< colvar.natoms[i_c])
-	remaining_ind++;
-    //<ADW
   }
 
   if(colvar.pg.nlist!=0)calc_projections( &(colvar.pg)); 
@@ -655,6 +748,20 @@ void PREFIX commit_analysis()
 }
 
 //----------------------------------------------------------------------------------------------------------------------
+
+void PREFIX zero_forces(struct mtd_data_s *mtd_data ) {
+  // set to zero all forces
+#ifndef PLUMED_GROMACS
+  int i;
+  for(i=0;i<mtd_data->natoms;i++){
+    mtd_data->force[i][0] = 0.0; 
+    mtd_data->force[i][1] = 0.0;
+    mtd_data->force[i][2] = 0.0;
+  }  
+#endif
+
+}
+
 void PREFIX apply_forces(struct mtd_data_s *mtd_data )
 {
   real ddr, uscale, lscale, dsdt, nor, fact;
@@ -677,15 +784,6 @@ void PREFIX apply_forces(struct mtd_data_s *mtd_data )
       Vrecon+=ene; for(i=0;i<reconinpt.nconst;i++) recon_der[reconinpt.cvlist[i]]=welikedupes_d[i]; 
    } 
 #endif
-#endif
-
-// set to zero all forces
-#ifndef PLUMED_GROMACS
-  for(i=0;i<mtd_data->natoms;i++){
-    mtd_data->force[i][0] = 0.0; 
-    mtd_data->force[i][1] = 0.0;
-    mtd_data->force[i][2] = 0.0;
-  }  
 #endif
 
   for(i_c=0;i_c<colvar.nconst;i_c++){
@@ -714,9 +812,9 @@ void PREFIX apply_forces(struct mtd_data_s *mtd_data )
        f.z=ddr*colvar.myder[i_c][i][2];
        addForce(iat,f);
 #else
-      mtd_data->force[iat][0] += ddr*colvar.myder[i_c][i][0];     // PluMeD forces
-      mtd_data->force[iat][1] += ddr*colvar.myder[i_c][i][1];
-      mtd_data->force[iat][2] += ddr*colvar.myder[i_c][i][2];
+             mtd_data->force[iat][0] += ddr*colvar.myder[i_c][i][0];     // PluMeD forces
+             mtd_data->force[iat][1] += ddr*colvar.myder[i_c][i][1];
+             mtd_data->force[iat][2] += ddr*colvar.myder[i_c][i][2];
 #endif    
     }
   }

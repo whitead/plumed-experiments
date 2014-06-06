@@ -216,7 +216,12 @@ class Grid(object):
         #set values to g minimum
         self.pot[np.where(self.pot == 0)] = np.min(g.pot)
 
-        
+
+    def rescale(self, scale):
+        assert len(scale) == self.ncv
+        length_diff = [(y - x) * (s - 1) for x,y,s in zip(self.min, self.max, scale)]
+        self.min = [x - l / 2 for x,l in zip(self.min, length_diff)]
+        self.max = [x + l / 2 for x,l in zip(self.max, length_diff)]
 
     def to_index(self, x, i):
         return max(0, min(self.nbins[i] - 1, int(floor( (x - self.min[i]) / self.dx[i]))))
@@ -371,8 +376,6 @@ class Grid(object):
         old_bins = self.nbins
         plt.imshow(np.swapaxes(data, 0, axis[0]), interpolation='none', cmap=cmap, extent=[self.min[axis[0]], self.max[axis[0]],self.max[axis[1]],self.min[axis[1]]])
         plt.savefig(filename)
-
-        
 
 
     def normalize(self):
