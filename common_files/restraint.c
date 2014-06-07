@@ -217,8 +217,6 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
     for(i_c=0;i_c<ncv;i_c++) {
       if(colvar.b_treat_independent[i_c]) {
 	stash_result = independent_stash_cv(i_c, ind_i_c);//need to increment atom index
-	if(stash_result != 1)
-	  break;
       }
     }
 
