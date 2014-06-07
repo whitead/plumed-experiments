@@ -466,7 +466,8 @@ struct colvar_s
   real   simtemp;                       // simulation temperature
   real   wfactor;                       // welltemp factor = wtemp/simtemp
   //ADW>
-  int    b_treat_independent  [nconst_max];          //
+  int    b_treat_independent  [nconst_max];          //treat the CV's as independent?
+  real   stoch_sample [nconst_max];     //If < 1, add hills stochastically
   //<ADW
   // JFD>
   real   tttemp;                        // transition tempered temperature

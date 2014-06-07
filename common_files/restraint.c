@@ -216,7 +216,13 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
     //try stash and see if more are necessary
     for(i_c=0;i_c<ncv;i_c++) {
       if(colvar.b_treat_independent[i_c]) {
-	stash_result = independent_stash_cv(i_c, ind_i_c);//need to increment atom index
+	stash_result = independent_stash_cv(i_c, ind_i_c);//try to stash the other atoms and use only ind_i_c
+	if(stash_result != 1)
+	  break;
+	//if we are stochastically sampling, do it now
+	else if(colvar.stoch_sample[i_c] < 1.)
+	  stash_result = rando(SEED GOES HERE) < colvar.stoch_sample[i_c];
+
       }
     }
 

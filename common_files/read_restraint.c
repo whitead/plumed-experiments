@@ -566,11 +566,21 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
         }
       }
     }else if(!strcmp(word[0],"TREAT_INDEPENDENT")) {
-      for(iw=1;iw<nw;iw++){
-	  sscanf(word[iw], "%d", &icv);
-	  colvar.b_treat_independent[icv-1] = 1;
-	  fprintf(mtd_data->fplog,"Will treat CV %d independently\n", icv);
+      //Easy to test here
+      if(!logical.enable_untested_features)
+	plumed_error("TREAT_INDEPENDENT NOT ENABLED!\n");
+      iw = 1;
+      if(!sscanf(word[iw++], "%d", &icv))
+       plumed_error("MUST SPECIFY {CV INDEX} THEN OPTIONALLY {SAMPLING FRACTION} FOR STOCHASTIC SAMPLE\n");
+      if(sscanf(word[iw], "%f", &uno)) {
+	if(uno >= 1 || uno < 0) 
+	  plumed_error("SAMPLING FRACTION MUST BE BETWEEN 0 AND 1\n");
+	stoch_sample[icv-1] = uno;	
       }
+      colvar.b_treat_independent[icv-1] = 1;
+      fprintf(mtd_data->fplog,"Will sample CV %d independently \n", icv);
+      if(stoch_sample[icv-1] < 1)
+	fprintf(mtd_data->fplog,"Will sample CV %d with probability %f \n", icv, stoch_sample[icv]);
       // <ADW
     } else if(!strcmp(word[0],"DEBUG_TRANSITIONTEMPERED")){
       logical.ttdebug=1;
@@ -1679,6 +1689,9 @@ void PREFIX read_defaults()
     // JFD>
     hills.mcgdp_reshape_flag[icv] = 0;
     // <JFD
+    //ADW >
+    colvar.stoch_sample[icv]    = 1.;
+    // <ADW
     cvsteer.slope[icv]          = 0.;
     cvsteer.annealing[icv]      = 0;
     stopwhen.actmin[icv]        = 0;
