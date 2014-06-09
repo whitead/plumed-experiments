@@ -961,6 +961,10 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
       if (logical.mcgdp_hills) {
         for(j = 0; j < ncv; j++) {
           if (hills.mcgdp_reshape_flag[j] == 1) {
+	    //check if we're actually within the McGovern-de Pablo bounds
+	    if(xx[j] <= hills.hill_lower_bounds[j] || xx[j] >= hills.hill_upper_bounds[j])
+	      continue;
+	    
             // Compute how large the hill is where it hits the lower bound
             lbound_exp_argument = (xx[j] - hills.hill_lower_bounds[j]) * (xx[j] - hills.hill_lower_bounds[j])/(2 * delta[grid->index[j]] * delta[grid->index[j]]);
             if (lbound_exp_argument < DP2CUTOFF) {
