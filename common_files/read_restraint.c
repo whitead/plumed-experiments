@@ -571,12 +571,20 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	plumed_error("TREAT_INDEPENDENT NOT ENABLED!\n");
       iw = 1;
       if(!sscanf(word[iw++], "%d", &icv))
-       plumed_error("MUST SPECIFY {CV INDEX} THEN OPTIONALLY {SAMPLING FRACTION} FOR STOCHASTIC SAMPLE\n");
+       plumed_error("MUST SPECIFY {CV INDEX} THEN OPTIONALLY {SAMPLING FRACTION} OPTIONALLY {SEED} FOR STOCHASTIC SAMPLE\n");
       if(sscanf(word[iw], "%f", &uno)) {
 	if(uno >= 1 || uno < 0) 
 	  plumed_error("SAMPLING FRACTION MUST BE BETWEEN 0 AND 1\n");
-	stoch_sample[icv-1] = uno;	
+	colvar.stoch_sample[icv-1] = uno;	      
       }
+
+      if(colvar.stoch_sample[icv - 1] < 1) {
+	if(!sscanf(word[iw], "%d", &colvar.stoch_sample_seed)) {
+	  colvar.stoch_sample_seed = 0;
+	  fprintf(mtd_data->fplog, "DEFAULT STOCHASTIC SAMPLING SEED IS 0\n");
+	}	
+      }
+
       colvar.b_treat_independent[icv-1] = 1;
       fprintf(mtd_data->fplog,"Will sample CV %d independently \n", icv);
       if(stoch_sample[icv-1] < 1)

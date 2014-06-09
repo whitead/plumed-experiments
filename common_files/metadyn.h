@@ -1,4 +1,4 @@
-/*
+s/*
 *******************************************************************************
 *                                                                             *
 *                                PLUMED                                       *
@@ -468,6 +468,7 @@ struct colvar_s
   //ADW>
   int    b_treat_independent  [nconst_max];          //treat the CV's as independent?
   real   stoch_sample [nconst_max];     //If < 1, add hills stochastically
+  int   stoch_sample_seed;     //Seed for stochastic sampling 
   //<ADW
   // JFD>
   real   tttemp;                        // transition tempered temperature
