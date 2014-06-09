@@ -219,9 +219,6 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
 	stash_result = independent_stash_cv(i_c, ind_i_c);//try to stash the other atoms and use only ind_i_c
 	if(stash_result != 1)
 	  break;
-	//if we are stochastically sampling, do it now
-	else if(colvar.stoch_sample[i_c] < 1.)
-	  stash_result = rando(&colvar.stoch_sample_seed) < colvar.stoch_sample[i_c];
       }
     }
 
@@ -235,9 +232,10 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
 	remaining_ind++;
 	continue; //try again
       }
-      else if(stash_result == -1)
-	break; //we're done
-    }
+      break; //we're done, stash_result == -1
+    } else
+      remaining_ind++; //make sure we try another iteration
+
     //<ADW
 
     // this cycle is intended to calculate CVs values and derivatives
@@ -331,7 +329,9 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
       hills_force();						// compute hills force and energy
       if(logical.widthadapt) hills_adapt();			// to adapt gaussian width
       if(nth) {
-	hills_add(mtd_data);                                      // add HILL
+	//if we are stochastically sampling, do it now
+	if(colvar.stoch_sample == 1. || rando(&colvar.stoch_sample_seed) < colvar.stoch_sample)
+	  hills_add(mtd_data);                                      // add HILL
       } 
       if(ntrh) {
 	read_hills(mtd_data,0,hills.first_read);              	// is it time to read_hills?

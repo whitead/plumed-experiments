@@ -565,30 +565,47 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	  sscanf(word[iw], "%s", target_grid.r_file);
         }
       }
-    }else if(!strcmp(word[0],"TREAT_INDEPENDENT")) {
+    } else if(!strcmp(word[0],"TREAT_INDEPENDENT")) {
       //Easy to test here
       if(!logical.enable_untested_features)
 	plumed_error("TREAT_INDEPENDENT NOT ENABLED!\n");
-      iw = 1;
-      if(!sscanf(word[iw++], "%d", &icv))
-       plumed_error("MUST SPECIFY {CV INDEX} THEN OPTIONALLY {SAMPLING FRACTION} OPTIONALLY {SEED} FOR STOCHASTIC SAMPLE\n");
-      if(sscanf(word[iw], "%lf", &uno)) {
+
+      //parse list of CVs
+      fprintf(mtd_data->fplog,"Will sample CVs ");
+      for(iw = 1; iw < nw; iw++) {
+	//we assume it's a stochastic sample setting first, then
+	//check if it's actually an integer
+	if(sscanf(word[iw], "%lf", &uno)) {
+	  if(ceil(uno) == uno) {
+	    icv = (int) uno;
+	    colvar.b_treat_independent[icv-1] = 1;
+	    fprintf(mtd_data->fplog,"%d ", icv);
+	  } else {
+	    break;
+	  }
+	} else {
+	  plumed_error("INCORRECT FORMAT FOR INDEPENDENT. SHOULD BE: \n\
+                        TREAT_INDEPENDENT (CV IDS) [STOCHASTIC SAMPLING FRACTION] [SEED FOR SAMPLING]\
+                        \nEXAMPLE:\n TREAT_INDEPENDENT 1 2 3 0.25 43323");
+	}
+      }
+      fprintf(mtd_data->fplog," independently\n");
+      
+      //Is the sampling going to be stochastic?
+      if(ceil(uno) != uno) {
 	if(uno >= 1 || uno < 0) 
 	  plumed_error("SAMPLING FRACTION MUST BE BETWEEN 0 AND 1\n");
-	colvar.stoch_sample[icv-1] = uno;	      
+	colvar.stoch_sample = uno;	     
+ 	fprintf(mtd_data->fplog,"Will sample independent CVs with probability %lf \n", colvar.stoch_sample);
       }
-
-      if(colvar.stoch_sample[icv - 1] < 1) {
-	if(!sscanf(word[iw], "%d", &colvar.stoch_sample_seed)) {
-	  colvar.stoch_sample_seed = 0;
-	  fprintf(mtd_data->fplog, "DEFAULT STOCHASTIC SAMPLING SEED IS 0\n");
-	}	
-      }
-
-      colvar.b_treat_independent[icv-1] = 1;
-      fprintf(mtd_data->fplog,"Will sample CV %d independently \n", icv);
-      if(colvar.stoch_sample[icv-1] < 1)
-	fprintf(mtd_data->fplog,"Will sample CV %d with probability %lf \n", icv, colvar.stoch_sample[icv]);
+      
+      //Is the seed specified?
+      if(iw >= nw || !sscanf(word[iw], "%d", &colvar.stoch_sample_seed)) {
+	colvar.stoch_sample_seed = 0;
+	fprintf(mtd_data->fplog, "DEFAULT STOCHASTIC SAMPLING SEED IS 0\n");
+      }	else
+	fprintf(mtd_data->fplog,"Will use seed %d for sampling\n", colvar.stoch_sample_seed);
+      
       // <ADW
     } else if(!strcmp(word[0],"DEBUG_TRANSITIONTEMPERED")){
       logical.ttdebug=1;
@@ -1698,7 +1715,7 @@ void PREFIX read_defaults()
     hills.mcgdp_reshape_flag[icv] = 0;
     // <JFD
     //ADW >
-    colvar.stoch_sample[icv]    = 1.;
+    colvar.stoch_sample         = 1.;
     // <ADW
     cvsteer.slope[icv]          = 0.;
     cvsteer.annealing[icv]      = 0;

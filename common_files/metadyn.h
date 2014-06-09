@@ -467,7 +467,7 @@ struct colvar_s
   real   wfactor;                       // welltemp factor = wtemp/simtemp
   //ADW>
   int    b_treat_independent  [nconst_max];          //treat the CV's as independent?
-  real   stoch_sample [nconst_max];     //If < 1, add hills stochastically
+  real   stoch_sample;     //If < 1, add hills stochastically
   int   stoch_sample_seed;     //Seed for stochastic sampling 
   //<ADW
   // JFD>
