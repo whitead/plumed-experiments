@@ -929,8 +929,10 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
         mcgdp_VHillDenom = 1.0;
         for (j = 0; j < ncv; j++) if(colvar.on[j]) {
           if (hills.mcgdp_reshape_flag[j] == 1) {
-            erf_index = (xx[j] - hills.hill_lower_bounds[j])/(hills.hill_upper_bounds[j]-hills.hill_lower_bounds[j]) * GTAB;
-            mcgdp_VHillDenom *= hills.erf[erf_index][j] / 2.0;
+	    if(xx[j] > hills.hill_lower_bounds[j] && xx[j] < hills.hill_upper_bounds[j]) {
+	      erf_index = (xx[j] - hills.hill_lower_bounds[j])/(hills.hill_upper_bounds[j]-hills.hill_lower_bounds[j]) * GTAB;
+	      mcgdp_VHillDenom *= hills.erf[erf_index][j] / 2.0;
+	    }
           }
         }
         expo /= mcgdp_VHillDenom;
