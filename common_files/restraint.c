@@ -221,7 +221,7 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
 	  break;
 	//if we are stochastically sampling, do it now
 	else if(colvar.stoch_sample[i_c] < 1.)
-	  stash_result = rando(colvar.stoch_sample_seed) < colvar.stoch_sample[i_c];
+	  stash_result = rando(&colvar.stoch_sample_seed) < colvar.stoch_sample[i_c];
       }
     }
 
