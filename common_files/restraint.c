@@ -233,9 +233,7 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
 	continue; //try again
       }
       break; //we're done, stash_result == -1
-    } else
-      remaining_ind++; //make sure we try another iteration
-
+    }
     //<ADW
 
     // this cycle is intended to calculate CVs values and derivatives
