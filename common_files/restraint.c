@@ -206,7 +206,7 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
 
   //ADW>
   //repeat the entire algorithm for each independent CV   
-  int stash_result;
+  int stash_result = 1;
   int remaining_ind = 1;
   //Zero forces, moved here otherwise we overwrite the forces for each independent CV loop iteration
   zero_forces(mtd_data);
