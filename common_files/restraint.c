@@ -219,6 +219,8 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
 	stash_result = independent_stash_cv(i_c, ind_i_c);//try to stash the other atoms and use only ind_i_c
 	if(stash_result != 1)
 	  break;
+	else //make sure we try again
+	  remaining_ind = ind_i_c + 2;
       }
     }
 
