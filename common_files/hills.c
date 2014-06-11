@@ -303,7 +303,20 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     if(logical.welltemp)//to prevent very large hills
       this_ww = fmin(hills.wwr, this_ww);
   }
-  
+  if(logical.mcgdp_hills) {
+    //check if the colvar is within the boundaries
+    for (icv=0; icv<ncv; icv++) if(colvar.on[icv]) {
+	if (hills.mcgdp_reshape_flag[icv] == 1) {
+	  if(colvar.ss0[icv] < hills.hill_lower_bounds[icv] ||
+	     colvar.ss0[icv] > hills.hill_upper_bounds[icv]) {
+	    //we aren't, make hill_height 0
+	    this_ww = 0;
+	    break;
+	  }
+	    
+	}
+      }
+  }
   // <ADW
 
   
