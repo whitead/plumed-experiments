@@ -299,9 +299,13 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
   // <JFD
   // ADW>
   if(logical.target_distribution) {
-    this_ww /= exp(mtd_data->boltz * grid_getstuff(&target_grid, colvar.ss0,  NULL));
+    this_ww /= exp(mtd_data->boltz *colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL));
     if(logical.welltemp)//to prevent very large hills
       this_ww = fmin(hills.wwr, this_ww);
+    //if(this_ww == hills.wwr)
+    //      printf("Chose hill height smaller, %f\n", this_ww);
+    //    else
+    //      printf("scaled hill by exp(%f * %f) =  %f\n",mtd_data->boltz * colvar.simtemp, grid_getstuff(&target_grid, colvar.ss0,  NULL), exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)));
   }
   if(logical.mcgdp_hills) {
     //check if the colvar is within the boundaries
