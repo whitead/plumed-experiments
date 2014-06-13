@@ -302,8 +302,30 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     this_ww /= exp(mtd_data->boltz *colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL));
     if(logical.welltemp)//to prevent very large hills
       this_ww = fmin(hills.wwr, this_ww);
-#ifdef OUTPUT_HILL_MULTIPLIERS    
-    printf("Hill = fmin(%f, %f * %f * %f =  %f)\n",this_ww, this_ww, exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)), 1. / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)), hills.wwr * exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)) / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)));
+#ifdef OUTPUT_TARGET_INFO   
+    printf("target value is %f\n", 
+	   grid_getstuff(&target_grid, colvar.ss0,  NULL));
+
+    printf("target scale is exp(%f * %f * %f) = %f\n", 
+	   mtd_data->boltz, 
+	   colvar.simtemp, 
+	   grid_getstuff(&target_grid, colvar.ss0,  NULL), 
+	   exp(mtd_data->boltz *colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)));
+
+    if(logical.welltemp)
+      printf("Hill = fmin(%f, %f * %f * %f =  %f)\n",
+	     this_ww, 
+	     this_ww, 
+	     exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)), 
+	     1. / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
+	     hills.wwr * exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)) / 
+	         exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)));
+    else
+      printf("Hill = fmin(%f, %f * %f =  %f)\n",
+	     this_ww, 
+	     this_ww, 
+	     1. / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
+	     hills.wwr / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)));
 #endif
   }
   if(logical.mcgdp_hills) {
