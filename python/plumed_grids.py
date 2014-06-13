@@ -131,16 +131,6 @@ class Grid(object):
             self.pot = np.rot90(self.pot, 3)
   
 
-
-    def add_target_correction(self, target_file, boltzmann_factor, bias_factor):
-        t = Grid()
-        t.read_plumed_grid(target_file)
-        t.pot *= boltzmann_factor
-        self.pot *= -(bias_factor) / (bias_factor - 1)
-        self.add(t)
-        self.pot -= np.min(self)
-        
-                
     def __str__(self):
         return "{} dimension Grid object from {} to {} with {} bins. Periodic = {}, Types = {}".format(self.dims, self.min, self.max, self.nbins, self.periodic, self.types)
 
@@ -348,14 +338,15 @@ class Grid(object):
         plt.colorbar()
         plt.savefig(filename)
 
-    def remove_target_bias(self, target_filename, bias_factor, boltzmann_factor):
+    def bias_to_pmf(self, target_filename=None, bias_factor, boltzmann_factor):
         self.pot *= (bias_factor) / (bias_factor - 1)
-        t = Grid()
-        t.read_plumed_grid(target_filename)
-        t.pot *= boltzmann_factor
-        self.add(t)
+        if(target_filename is not None):
+            t = Grid()
+            t.read_plumed_grid(target_filename)
+            t.pot *= boltzmann_factor
+            self.add(t)
         self.pot -= np.min(self.pot)
-        
+        self.pot *= -1.
         
 
     def plot_2d_region(self, filename, *region_functions):
