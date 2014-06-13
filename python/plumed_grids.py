@@ -338,7 +338,7 @@ class Grid(object):
         plt.colorbar()
         plt.savefig(filename)
 
-    def bias_to_pmf(self, target_filename=None, bias_factor, boltzmann_factor):
+    def bias_to_pmf(self, target_filename, bias_factor, boltzmann_factor):
         self.pot *= (bias_factor) / (bias_factor - 1)
         if(target_filename is not None):
             t = Grid()
