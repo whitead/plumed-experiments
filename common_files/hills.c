@@ -315,15 +315,15 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     if(logical.welltemp)
       printf("Hill = fmin(%f, %f * %f * %f =  %f)\n",
 	     this_ww, 
-	     this_ww, 
+	     hills.wwr,
 	     exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)), 
 	     1. / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
 	     hills.wwr * exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)) / 
 	         exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)));
+
     else
-      printf("Hill = fmin(%f, %f * %f =  %f)\n",
-	     this_ww, 
-	     this_ww, 
+      printf("Hill = %f * %f =  %f)\n",
+	     hills.wwr,
 	     1. / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
 	     hills.wwr / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)));
 #endif
