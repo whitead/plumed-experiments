@@ -348,11 +348,11 @@ class Grid(object):
         plt.colorbar()
         plt.savefig(filename)
 
-    def remove_target_bias(self, target_filename, bias_factor=2):
+    def remove_target_bias(self, target_filename, bias_factor, boltzmann_factor):
         self.pot *= (bias_factor) / (bias_factor - 1)
         t = Grid()
         t.read_plumed_grid(target_filename)
-        t.pot *= -1.0
+        t.pot *= boltzmann_factor
         self.add(t)
         self.pot -= np.min(self.pot)
         
