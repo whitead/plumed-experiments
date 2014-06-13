@@ -564,6 +564,11 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
           iw++; 
 	  sscanf(word[iw], "%s", target_grid.r_file);
         }
+        if(!strcmp(word[iw],"SIMTEMP")){
+          iw++; 
+	  sscanf(word[iw], "%f", &uno);
+	  colvar.simtemp = uno;
+        }
       }
     } else if(!strcmp(word[0],"TREAT_INDEPENDENT")) {
       //Easy to test here

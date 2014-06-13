@@ -1259,7 +1259,7 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
   // ADW>
   if(logical.target_distribution) {    
     if(!logical.do_grid) plumed_error("You must use a grid (see GRID keyword) to perform targted\n");
-    
+    if(colvar.simtemp == 0) plumed_error("You must specify SIMTEMP either in TARGET_DISTRIBUTION or WELLTEMPERED if using tempering\n");
     //copy over a few things from grid, which are compared with the target grid. 
     target_grid.ncv = bias_grid.ncv;
     for(i = 0; i < bias_grid.ncv; i++) {
