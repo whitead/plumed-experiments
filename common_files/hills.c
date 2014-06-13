@@ -302,10 +302,9 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     this_ww /= exp(mtd_data->boltz *colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL));
     if(logical.welltemp)//to prevent very large hills
       this_ww = fmin(hills.wwr, this_ww);
-    //if(this_ww == hills.wwr)
-    //      printf("Chose hill height smaller, %f\n", this_ww);
-    //    else
-    //      printf("scaled hill by exp(%f * %f) =  %f\n",mtd_data->boltz * colvar.simtemp, grid_getstuff(&target_grid, colvar.ss0,  NULL), exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)));
+#ifdef OUTPUT_HILL_MULTIPLIERS    
+    printf("Hill = fmin(%f, %f * %f * %f =  %f)\n",this_ww, this_ww, exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)), 1. / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)), hills.wwr * exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)) / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)));
+#endif
   }
   if(logical.mcgdp_hills) {
     //check if the colvar is within the boundaries
