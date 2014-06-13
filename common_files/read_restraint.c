@@ -566,7 +566,7 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
         }
         if(!strcmp(word[iw],"SIMTEMP")){
           iw++; 
-	  sscanf(word[iw], "%f", &uno);
+	  sscanf(word[iw], "%lf", &uno);
 	  colvar.simtemp = uno;
         }
       }
