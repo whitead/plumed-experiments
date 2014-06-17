@@ -651,7 +651,89 @@ for(i=0;i<mtd_data.natoms;i++){
 #endif
 }
 
-#elif defined(PLUMED_CPMD) 
+#elif defined (PLUMED_CP2K)
+// here we create Plumed
+Plumed Plumed_simulation;
+// the constructor
+PREFIX Plumed() {};
+void PREFIX mtd_data_init( int atoms, int nsp, int *na, real ddt, int stepnow, real *mass, char *metainp)
+{
+ int i,j,k;
+ mtd_data.pos       = float_2d_array_alloc(atoms,3);
+ mtd_data.vel       = float_2d_array_alloc(atoms,3);
+ mtd_data.force     = float_2d_array_alloc(atoms,3);
+ mtd_data.charge    = (real *)calloc(atoms,sizeof(real));
+ mtd_data.mass      = (real *)calloc(atoms,sizeof(real));
+ mtd_data.natoms    = atoms;
+ mtd_data.dt        = ddt;
+ mtd_data.istep_old = stepnow-1;
+ mtd_data.istep     = stepnow;
+ mtd_data.eunit     = 1.;
+ mtd_data.ionode    = 1;
+ mtd_data.boltz     = 0.0000031668114; // hartree/K
+ logical.not_same_step=1;
+ sprintf(hills.dir, ".");
+ mtd_data.fplog = fopen("log.file","w");
+
+ strcpy(mtd_data.metaFilename, metainp);
+ i=0;
+ for(j=0;j<nsp;j++){
+   for(k=0;k<na[j];k++){
+     mtd_data.mass[i]=mass[j];
+     printf("atom %3d mass %7.3f\n",i+1,mtd_data.mass[i]);
+     i++;
+   }
+ }
+ for(i=0;i<mtd_data.natoms;i++) {
+   mtd_data.charge[i] = 0.; // no charges in cp2k??
+ }
+
+}
+
+void PREFIX meta_force_calculation(real *pos, real *force, int *atoms)
+{
+ int i,j;
+
+ for(i=0; i<*atoms; i++) {
+     mtd_data.pos[i][0] = pos[0+i*3];
+     mtd_data.pos[i][1] = pos[1+i*3];
+     mtd_data.pos[i][2] = pos[2+i*3];
+     //printf ("pos: %12.8f %12.8f %12.8f     force_0: %12.8f %12.8f %12.8f mass: %12.8f\n", mtd_data.pos[i][0], mtd_data.pos[i][1], mtd_data.pos[i][2],force[0+i*3],force[1+i*3],force[2+i*3],mtd_data.mass[i]);
+ }
+
+ restraint(&mtd_data);
+ mtd_data.istep++;
+
+ for(i=0;i<*atoms;i++) {
+     force[0+i*3] = mtd_data.force[i][0];
+     force[1+i*3] = mtd_data.force[i][1];
+     force[2+i*3] = mtd_data.force[i][2];
+     //printf ("mtd: %12.8f %12.8f %12.8f     force_1: %12.8f %12.8f %12.8f \n", mtd_data.force[i][0], mtd_data.force[i][1], mtd_data.force[i][2],force[0+i*3],force[1+i*3],force[2+i*3]);
+ }
+}
+
+#if defined(PLUMED_CP2K_NOUNDERSCORE)
+// some IBM-AIX compilers (not all of them) do not want the underscore...
+void init_metadyn(int *atoms, int *nsp, int *na, real *ddt, int *stepnow, real *mass, char *metainp)
+#else
+void init_metadyn_(int *atoms, int *nsp, int *na, real *ddt, int *stepnow, real *mass, char *metainp)
+#endif
+{
+  //printf(" PLUMED| cp2k: inside wrapper init_metadyn, calling init_metadyn... %s \n",metainp);
+  Plumed_simulation.init_metadyn(atoms, nsp, na, ddt, stepnow, mass, metainp);
+  //printf(" PLUMED| ...done\n");
+}
+#if defined(PLUMED_CP2K_NOUNDERSCORE)
+// some IBM-AIX compilers (not all of them) do not want the underscore...
+void meta_force_calculation(real *pos, real *force, int *atoms)
+#else
+void meta_force_calculation_(real *pos, real *force, int *atoms)
+#endif
+{
+  Plumed_simulation.meta_force_calculation(pos, force, atoms);
+}
+
+#elif defined(PLUMED_CPMD)
 // here we create Plumed
 Plumed Plumed_simulation;
 // the constructor
@@ -1108,6 +1190,8 @@ void init_metadyn_(int *atoms, real *ddt, int *pbc_opep,
   void init_metadyn_(int *atoms, real *ddt, real *mass, real *charge, int *imcon, real *eunit, char *metainp, int pp) 
 #elif defined (PLUMED_CPMD)
 void PREFIX init_metadyn(int *atoms, int *nsp, int *na, int *nsx, int *nax, real *ddt, int *stepnow, real *mass)
+#elif defined (PLUMED_CP2K)
+void PREFIX init_metadyn(int *atoms, int *nsp, int *na, real *ddt, int *stepnow, real *mass, char *metainp)
 //#elif defined (RECON_DRIVER)
 //void init_metadyn_(int *atoms, real *ddt, real *mass, real *charge, int *pbc, real *box, char *metainp, int* ncv, double *periods, real *width, real *height, real *sizeParam, int ll)
 #elif defined (DRIVER)
@@ -1184,9 +1268,11 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
   mtd_data_init(*pbc_opep,*ddt,*atoms,*repl,*nrepl,*rte0,*rteio,mass,lpath,logfile,metainp);
 #elif defined (DL_POLY) || defined (AMBER) || defined (PLUMED_QESPRESSO) || defined (GAT_LJONES)
   mtd_data_init( *atoms , *ddt , mass, charge , imcon, eunit, metainp);
-#elif defined (PLUMED_CPMD)
+#elif defined (PLUMED_CPMD) 
   char *metainp="plumed.dat";
   mtd_data_init( *atoms, *nsp, na, *nsx, *nax, *ddt, *stepnow, mass, metainp);
+#elif defined (PLUMED_CP2K)
+  mtd_data_init( *atoms, *nsp, na, *ddt, *stepnow, mass, metainp);
 //#elif RECON_DRIVER
 //  mtd_data_init( *atoms, mass, charge, metainp, *pbc, box, *ddt);
 #elif DRIVER
@@ -1386,10 +1472,20 @@ for(i=0;i<3;i++){
   rij[0]=pos1[0]-pos2[0];
   rij[1]=pos1[1]-pos2[1];
   rij[2]=pos1[2]-pos2[2];
-#if defined(PLUMED_CPMD_NOUNDERSCORE)
+#if defined(PLUMED_CPMD_NOUNDERSCORE) 
   pbc_cpmd_plumed(&rij[0],&rij[1],&rij[2]);
 #else
   pbc_cpmd_plumed_(&rij[0],&rij[1],&rij[2]);
+#endif
+  *mod_rij=sqrt(pow(rij[0],2)+pow(rij[1],2)+pow(rij[2],2));
+#elif defined (PLUMED_CP2K)
+  rij[0]=pos1[0]-pos2[0];
+  rij[1]=pos1[1]-pos2[1];
+  rij[2]=pos1[2]-pos2[2];
+#if defined (PLUMED_CP2K_NOUNDERSCORE)
+  __cell_types_MOD_pbc_cp2k_plumed(&rij[0],&rij[1],&rij[2]);
+#else
+  __cell_types_MOD_pbc_cp2k_plumed(&rij[0],&rij[1],&rij[2]);
 #endif
   *mod_rij=sqrt(pow(rij[0],2)+pow(rij[1],2)+pow(rij[2],2));
 #elif defined (ACEMD) || defined (DRIVER) || defined (AMBER) || defined (STANDALONE) || defined (PLUMED_QESPRESSO) 

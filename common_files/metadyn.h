@@ -32,6 +32,7 @@
 *
 */
 
+
 #ifndef EXTERNALS
 #if defined NAMD
    #define MYEXT 
@@ -39,6 +40,8 @@
    #define MYEXT 
 #elif defined PLUMED_CPMD
    #define MYEXT
+ #elif defined PLUMED_CP2K
+    #define MYEXT
 #else
    #define MYEXT extern
 #endif   
@@ -115,6 +118,10 @@ using namespace LAMMPS_NS;
 
 //CPMD
 #elif defined (PLUMED_CPMD)
+#define PREFIX Plumed::
+
+//CP2K
+#elif defined (PLUMED_CP2K)
 #define PREFIX Plumed::
 
 // Fortran codes (no header needed)
@@ -1165,6 +1172,26 @@ class Plumed{
  // these two are inside the class, not visible from outside, called from the wrapper routines above
  void init_metadyn(int *atoms, int *nsp, int *na, int *nsx, int *nax, real *ddt, int *now, real *mass);
  void meta_force_calculation(real *pos, real *force, int *nsp, int *na, int *nax, int *nsx);
+#elif defined(PLUMED_CP2K)
+#if defined(PLUMED_CP2K_NOUNDERSCORE) 
+// these two are the wrapper rotines, needed to call c++ code from fortran
+extern "C" void init_metadyn(int *atoms, int *nsp, int *na, real *ddt, int *now, real *mass, char *metainp);
+extern "C" void meta_force_calculation(real *pos, real *force, int *atoms);
+extern "C" void __cell_types_MOD_pbc_cp2k_plumed( real*, real*, real* );
+#else
+// these two are the wrapper rotines, needed to call c++ code from fortran
+extern "C" void init_metadyn_(int *atoms, int *nsp, int *na, real *ddt, int *now, real *mass, char *metainp);
+extern "C" void meta_force_calculation_(real *pos, real *force, int *atoms);
+extern "C" void __cell_types_MOD_pbc_cp2k_plumed( real*, real*, real* );
+#endif
+// this is the c++ class containing all plumed (like this there is no name conflict between things in cp2k and things in plumed??)
+class Plumed{
+ public:
+ Plumed(); //constructor
+ void mtd_data_init( int atoms, int nsp, int *na, real ddt, int now, real *mass, char *metainp);
+ // these two are inside the class, not visible from outside, called from the wrapper routines above
+ void init_metadyn(int *atoms, int *nsp, int *na, real *ddt, int *now, real *mass, char *metainp);
+ void meta_force_calculation(real *pos, real *force, int *atoms);
 //#elif RECON_DRIVER
 // void init_metadyn_(int *atoms, real *ddt, real *mass, real *charge, int *pbc, real *box, char *metainp, int* ncv, double *periods, real *w, real *height, real *sizeParam, int ll);
 // void mtd_data_init(int atoms, real *mass, real *charge, char *metainp, int pbc, real *box, real ddt);
@@ -1288,6 +1315,8 @@ void eds_init(int cv_number, real update_period,
  // JFD>
  // Added for transition tempering
  double transition_bias_ND();
+ int  read_density       (char **word,int count,t_plumed_input *input,           FILE *fplog);
+ int  read_densityswitch (char **word,int count,t_plumed_input *input,           FILE *fplog);
  #define TTMETAD_LATTICE_PBC 0
  #define TTMETAD_LATTICE_RBC 1
 
@@ -1341,6 +1370,8 @@ void eds_init(int cv_number, real update_period,
  void insert_indexed_value(indexed_value_max_heap *ival_mheap, size_t index, double value);
  double get_max(indexed_value_max_heap *ival_mheap);
  size_t get_max_index(indexed_value_max_heap *ival_mheap);
+ void density_restraint       (int i_c, struct mtd_data_s *mtd_data);
+ void densityswitch_restraint (int i_c, struct mtd_data_s *mtd_data);
  void delete_max(indexed_value_max_heap *ival_mheap);
  void swap_heap_entries(indexed_value_max_heap *ival_mheap, size_t index_one, size_t index_two);
 
@@ -1679,7 +1710,7 @@ void point_to_matrix(int i,struct sz_data *my_sz);
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #endif
 
-#if defined (NAMD) || defined (LAMMPS_PLUMED) || defined (PLUMED_CPMD)
+#if defined (NAMD) || defined (LAMMPS_PLUMED) || defined (PLUMED_CPMD) || defined(PLUMED_CP2K)
 inline real min(real a, real b) { if(a < b){ return a;}else{b;}; };
 #endif
 
@@ -1690,6 +1721,7 @@ inline real min(real a, real b) { if(a < b){ return a;}else{b;}; };
 #elif PLUMED_CPMD
 // we need this because Plumed is a class
 };
+#elif PLUMED_CP2K
 // this makes the Plumed object global
 extern Plumed Plumed_simulation;
 #endif
