@@ -570,7 +570,92 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	  colvar.simtemp = uno;
         }
       }
-    } else if(!strcmp(word[0],"TREAT_INDEPENDENT")) {
+    } else if(!strcmp(word[0], "EDS")) {
+      //EXAMPLE for adaptive
+      //EDS STRIDE 500 SIMTEMP 300 SEED 4143 CV LIST 1 2 4
+      //EDS CV CENTERS 0.5 2.5 2.3
+      //EDS CV RANGE 5 5 5
+      //EXAMPLE for fixed
+      //EDS SIMTEMP 300 CV LIST 1 2 4
+      //EDS CV CENTERS 0.5 2.5 2.3
+      //EDS CV COUPLING 34 23 4      
+      if(!logical.eds) 
+	fprintf(mtd_data->fplog, "Enabling experiment directed simulation\n");
+      logical.eds = 1;
+      
+      iw++;            
+      
+      if(!strcmp(word[iw], "CV")) {
+	iw++;
+	if(!strcmp(word[iw], "CENTERS")) {
+	  if(eds.cv_number == 0) {
+	    plumed_error("Must define CVs first for EDS with [CV LIST 1 2 3]");
+	  }
+	  for(icv = 0;iw < nw; iw++) {
+	    sscanf(word[iw], "%lf", &uno);
+	    eds.centers[icv-1] = uno;
+	    fprintf(mtd_data->fplog, "EDS: Will center CV %d at %lf\n", icv,
+		    eds.centers[icv-1]);
+	    icv++;
+	  }
+	}
+	else if(!strcmp(word[0], "RANGE")) {
+	  if(eds.cv_number == 0) {
+	    plumed_error("Must define CVs first for EDS with [CV LIST 1 2 3]");
+	  }
+	  for(icv = 0;iw < nw; iw++) {
+	    sscanf(word[iw], "%lf", &uno);
+	    eds.max_coupling_range[icv-1] = uno;
+	    fprintf(mtd_data->fplog, 
+		    "EDS: Will cap range of CV %d at %lf\n", 
+		    icv,
+		    eds.max_coupling_range[icv-1]);
+	    icv++;
+	  }
+	}
+      } else {
+
+	if(iw >= nw - 2 || strcmp(word[iw++], "STRIDE"))
+	  plumed_error("Must specify STRIDE in EDS [EDS 500 CV LIST 1 3]\n");
+	iw++;
+	int update_period;
+	if(!sscanf(word[iw++], "%d", &update_period)){
+	  plumed_error("Must specify STRIDE in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");
+
+	}
+
+	if(iw >= nw - 2 || strcmp(word[iw++], "SIMTEMP"))
+	  plumed_error("Must specify SIMTEMP in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");
+	if(!sscanf(word[iw++], "%lf", &uno)){
+	  plumed_error("Must specify SIMTEMP in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 4313 CV LIST 1 3]\n");
+	}
+
+	if(iw >= nw - 2 || strcmp(word[iw++], "SEED"))
+	  plumed_error("Must specify SEED in EDS [EDS STRIDE 500 SIMTEMP 300 CV LIST 1 3]\n");
+	int eds_seed;
+	if(!sscanf(word[iw++], "%d", &eds_seed)){
+	  plumed_error("Must specify SEED in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");
+	}
+
+		
+	if(!strcmp(word[iw++], "LIST")) {
+	  int* cv_map = (int*) malloc(sizeof(int) * colvar.nconst);
+	  for(i = 0;iw < nw; iw++) {
+	    sscanf(word[iw], "%d", &icv);
+	    cv_map[i] = icv;
+	    fprintf(mtd_data->fplog, 
+		    "EDS: Will use CV %d \n", 
+		    icv);
+	    i++;
+	  }
+	  cv_map = (int *) realloc(cv_map, sizeof(int) * (i - 1));
+	  eds_init(i - 1, update_period, uno, eds_seed, 0, cv_map, &eds);
+	} else {
+	  plumed_error("Must specify CV List in EDS [EDS 500 CV LIST 1 3]\n");
+	}
+      }
+      
+    }else if(!strcmp(word[0],"TREAT_INDEPENDENT")) {
       //Easy to test here
       if(!logical.enable_untested_features)
 	plumed_error("TREAT_INDEPENDENT NOT ENABLED!\n");
@@ -1721,6 +1806,7 @@ void PREFIX read_defaults()
     // <JFD
     //ADW >
     colvar.stoch_sample         = 1.;
+    eds.cv_number               = 0;
     // <ADW
     cvsteer.slope[icv]          = 0.;
     cvsteer.annealing[icv]      = 0;

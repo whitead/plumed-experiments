@@ -373,6 +373,7 @@ struct logical_s
   // <JFD
   //ADW>
   int    target_distribution; //do target distribution metadynamisc
+  int    eds; //do experiment directed simulation
   // <ADW
   int    lreflect[nconst_max];
   int    ureflect[nconst_max];
@@ -399,6 +400,29 @@ struct logical_s
   int    do_pca;
   int    nlist[nconst_max];
 };
+
+//ADW>
+//experiment directed simulation structure
+typedef struct s_t_eds {
+  real*  centers; //colvar centers
+  real*  means; //colvar means
+  real*  ssd; //sum of squared deviation
+  real*  max_coupling_range; //max coupling range
+  real*  max_coupling_rate; //max coupling rate
+  real*  set_coupling; //where we want the coupling to be
+  real*  current_coupling; //where the coupling is
+  real*  coupling_rate; //how quickly to change the coupling
+  real*  coupling_accum; //accumation in coupling
+  int*   cv_map;//map from CVs we're biasing and those we're not
+  real   simtemp;// simulation temperature
+  int    seed;//random number seed
+  int    cv_number;//number of CV's we're biasing
+  int    update_period; //the stride/period, how often to update
+  int    update_calls; //how often we've been called
+  int    b_equilibration; //are we in equilibration phase?
+  int    b_hard_coupling_range; //allow/disallow flexible coupling range
+} t_eds;
+//<ADW
 
 struct adapt
 {
@@ -1214,9 +1238,17 @@ extern "C" {
  real hills_engine(real*,real*);
  real hills_engine_dp(int ih,real* ss0,real* dp);
  void hills_force();
- //Sepearated zero forces from apply forces
  //ADW>
+ //Sepearated zero forces from apply forces
  void zero_forces(struct mtd_data_s *mtd_data );
+ //Experiment directed simulation methods
+void eds_init(int cv_number, real update_period, 
+		real simtemp, int seed,
+		int b_hard_coupling_range, 
+		int* cv_map,
+		t_eds* eds);
+ void eds_free(t_eds* eds);
+ real eds_engine(real* ss0, real* force, t_eds* eds, real boltz);
  //<ADW
  void apply_forces(struct mtd_data_s *mtd_data );
  void inversion_on_boundaries(struct mtd_data_s *mtd_data,int ncv);
@@ -1610,8 +1642,12 @@ void point_to_matrix(int i,struct sz_data *my_sz);
     MYEXT struct sprint_data_s sprint_data;
 // external potential
     MYEXT struct grid_s     extpot;
+    //ADW>
 //target distribution, if being used
     MYEXT struct grid_s    target_grid;
+    //experiment directed simulation parameters
+    MYEXT t_eds eds;
+    //<ADW
 // camshift stuff
     MYEXT struct cam_shift_s cam_shift;
 // stopwhen stuff
