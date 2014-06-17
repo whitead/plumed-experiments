@@ -58,11 +58,11 @@ void PREFIX eds_init(int cv_number, real update_period,
   eds->current_coupling = (real*) calloc(cv_number, sizeof(real));
   eds->coupling_rate = (real*) calloc(cv_number, sizeof(real));
   eds->coupling_accum = (real*) calloc(cv_number, sizeof(real));
+
+  eds->cv_number = cv_number;
   
-  eds->cv_map = cv_map;
-  
-  eds->simtemp = simtemp;
-  
+  eds->cv_map = cv_map;  
+  eds->simtemp = simtemp;  
   eds->seed = seed;
 
   eds->update_period = update_period;
@@ -84,8 +84,6 @@ void PREFIX eds_free(t_eds* eds) {
   free(eds->coupling_rate);
   free(eds->coupling_accum);
 
-  free(eds);
-
 }
 
 /*
@@ -102,8 +100,8 @@ real PREFIX eds_engine(real* ss0, real* force,
   real delta;
     
   //apply forces for this setp and calculat energies
-  for(i = 0; eds->cv_number; i++) {
-    force[i] = eds->current_coupling[i] / eds->centers[i] * ss0[eds->cv_map[i]];
+  for(i = 0; i < eds->cv_number; i++) {
+    force[eds->cv_map[i]] = eds->current_coupling[i] / eds->centers[i] * ss0[eds->cv_map[i]];
     bias_energy += eds->current_coupling[i] / eds->centers[i] * (ss0[eds->cv_map[i]] - eds->centers[i]);
 
     //are we updating the bias?

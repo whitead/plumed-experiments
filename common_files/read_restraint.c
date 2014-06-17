@@ -582,8 +582,7 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
       if(!logical.eds) 
 	fprintf(mtd_data->fplog, "Enabling experiment directed simulation\n");
       logical.eds = 1;
-      
-      iw++;            
+      iw = 1;
       
       if(!strcmp(word[iw], "CV")) {
 	iw++;
@@ -615,9 +614,12 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	}
       } else {
 
+	if(eds.cv_number != 0) {
+	  plumed_error("Syntax is EDS CV RANGE.... or EDS CV CENERS....\n");
+	}
+
 	if(iw >= nw - 2 || strcmp(word[iw++], "STRIDE"))
 	  plumed_error("Must specify STRIDE in EDS [EDS 500 CV LIST 1 3]\n");
-	iw++;
 	int update_period;
 	if(!sscanf(word[iw++], "%d", &update_period)){
 	  plumed_error("Must specify STRIDE in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");
@@ -636,9 +638,8 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	if(!sscanf(word[iw++], "%d", &eds_seed)){
 	  plumed_error("Must specify SEED in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");
 	}
-
 		
-	if(!strcmp(word[iw++], "LIST")) {
+	if(iw < nw - 3 || !(strcmp(word[iw++], "CV") & strcmp(word[iw++], "LIST"))) {
 	  int* cv_map = (int*) malloc(sizeof(int) * colvar.nconst);
 	  for(i = 0;iw < nw; iw++) {
 	    sscanf(word[iw], "%d", &icv);
@@ -648,8 +649,8 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 		    icv);
 	    i++;
 	  }
-	  cv_map = (int *) realloc(cv_map, sizeof(int) * (i - 1));
-	  eds_init(i - 1, update_period, uno, eds_seed, 0, cv_map, &eds);
+	  cv_map = (int *) realloc(cv_map, sizeof(int) * i);
+	  eds_init(i, update_period, uno, eds_seed, 0, cv_map, &eds);
 	} else {
 	  plumed_error("Must specify CV List in EDS [EDS 500 CV LIST 1 3]\n");
 	}

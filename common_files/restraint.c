@@ -1415,6 +1415,8 @@ void PREFIX stopwhen_engine (){
       }
     } 
     if(stop){
+      if(logical.eds)
+	eds_free(&eds);
 #ifdef PLUMED_GROMACS45
                   gmx_set_stop_condition(1); 
 #else
