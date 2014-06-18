@@ -592,9 +592,9 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	  }
 	  for(icv = 0;iw < nw; iw++) {
 	    sscanf(word[iw], "%lf", &uno);
-	    eds.centers[icv-1] = uno;
-	    fprintf(mtd_data->fplog, "EDS: Will center CV %d at %lf\n", icv,
-		    eds.centers[icv-1]);
+	    eds.centers[icv] = uno;
+	    fprintf(mtd_data->fplog, "EDS: Will center CV %d at %lf\n", icv+1,
+		    eds.centers[icv]);
 	    icv++;
 	  }
 	}
@@ -604,11 +604,11 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	  }
 	  for(icv = 0;iw < nw; iw++) {
 	    sscanf(word[iw], "%lf", &uno);
-	    eds.max_coupling_range[icv-1] = uno;
+	    eds.max_coupling_range[icv] = uno;
 	    fprintf(mtd_data->fplog, 
 		    "EDS: Will cap range of CV %d at %lf\n", 
-		    icv,
-		    eds.max_coupling_range[icv-1]);
+		    icv+1,
+		    eds.max_coupling_range[icv]);
 	    icv++;
 	  }
 	}
@@ -643,7 +643,7 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	  int* cv_map = (int*) malloc(sizeof(int) * colvar.nconst);
 	  for(i = 0;iw < nw; iw++) {
 	    sscanf(word[iw], "%d", &icv);
-	    cv_map[i] = icv;
+	    cv_map[i] = icv - 1;
 	    fprintf(mtd_data->fplog, 
 		    "EDS: Will use CV %d \n", 
 		    icv);
