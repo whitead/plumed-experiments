@@ -414,6 +414,7 @@ typedef struct s_t_eds {
   real*  coupling_rate; //how quickly to change the coupling
   real*  coupling_accum; //accumation in coupling
   int*   cv_map;//map from CVs we're biasing and those we're not
+  FILE*  output_file;//Output 
   real   simtemp;// simulation temperature
   int    seed;//random number seed
   int    cv_number;//number of CV's we're biasing
@@ -1246,9 +1247,13 @@ void eds_init(int cv_number, real update_period,
 		real simtemp, int seed,
 		int b_hard_coupling_range, 
 		int* cv_map,
+	      const char* filename,
 		t_eds* eds);
  void eds_free(t_eds* eds);
  real eds_engine(real* ss0, real* force, t_eds* eds, real boltz);
+ void eds_write(t_eds* eds, long long int step);
+ void dump_eds(t_eds* eds);
+ void dump_array(real* array, int length, FILE* file, const char* name);
  //<ADW
  void apply_forces(struct mtd_data_s *mtd_data );
  void inversion_on_boundaries(struct mtd_data_s *mtd_data,int ncv);

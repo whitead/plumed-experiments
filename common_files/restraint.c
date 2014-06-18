@@ -349,8 +349,11 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
     
     cvw.Vwall+=abmd_engine(colvar.ss0,cvw.fwall);                // Wall potential
 
+    //write eds
+    eds_write(&eds, mtd_data->istep);
+
     cvw.Vwall+=eds_engine(colvar.ss0,cvw.fwall, &eds, mtd_data->boltz);
-    
+        
     if (logical.do_dafed) dafed_engine(colvar.ss0);	       // #### d-AFED
     
     cvw.Vwall+=tamd_engine(colvar.ss0,cvw.fwall);                // TAMD/DAFED temperarily added here

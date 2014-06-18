@@ -47,6 +47,7 @@ void PREFIX eds_init(int cv_number, real update_period,
 		       real simtemp, int seed,
 		       int b_hard_coupling_range, 
 		       int* cv_map,
+		     const char* filename,
 		       t_eds* eds) {
 
   eds->centers = (real*) calloc(cv_number, sizeof(real));
@@ -65,10 +66,17 @@ void PREFIX eds_init(int cv_number, real update_period,
   eds->simtemp = simtemp;  
   eds->seed = seed;
 
+  eds->output_file = fopen(filename, "w");
+
   eds->update_period = update_period;
   eds->update_calls = 0;
   eds->b_equilibration = 1;
   eds->b_hard_coupling_range = b_hard_coupling_range;
+
+  int i;
+  for(i = 0; i < cv_number; i++) {
+    eds->max_coupling_range[i] = 1;
+  }
  
 }
 
@@ -83,6 +91,8 @@ void PREFIX eds_free(t_eds* eds) {
   free(eds->current_coupling);
   free(eds->coupling_rate);
   free(eds->coupling_accum);
+  
+  fclose(eds->output_file);
 
 }
 
@@ -96,12 +106,23 @@ real PREFIX eds_engine(real* ss0, real* force,
   int i;  
 
   eds->update_calls++;
+
+  if(eds->update_calls == 0) {
+    for(i = 0; i < eds->cv_number; i++) {
+      eds->max_coupling_rate[i] = eds->max_coupling_range[i] / (10 * eds->update_period);
+    }
+  }
+
   int b_finished_equil_flag = 1;
   real delta;
-    
-  //apply forces for this setp and calculat energies
+
+  //zero forces
+  for(i = 0; i < eds->cv_number; i++)
+    force[eds->cv_map[i]] = 0;
+
+  //apply forces for this setp and calculate energies
   for(i = 0; i < eds->cv_number; i++) {
-    force[eds->cv_map[i]] = eds->current_coupling[i] / eds->centers[i] * ss0[eds->cv_map[i]];
+    force[eds->cv_map[i]] -= eds->current_coupling[i] / eds->centers[i] * ss0[eds->cv_map[i]];
     bias_energy += eds->current_coupling[i] / eds->centers[i] * (ss0[eds->cv_map[i]] - eds->centers[i]);
 
     //are we updating the bias?
@@ -144,7 +165,6 @@ real PREFIX eds_engine(real* ss0, real* force,
 
   //Now we update coupling constant, if necessary
   if(!eds->b_equilibration && eds->update_calls == eds->update_period) {
-    
 
     //use estimated variance to take a step
     real step_size = 0;
@@ -175,11 +195,75 @@ real PREFIX eds_engine(real* ss0, real* force,
 	//we chose not to change the bias
 	eds->coupling_rate[i] = 0;
       }      
+    
     } // closing colvar loop
+
     
     eds->update_calls = 0;
     eds->b_equilibration = true; //back to equilibration now
   } //close if update if
 
   return bias_energy;
+}
+
+void PREFIX dump_array(real* array, int length, FILE* file, const char* name) {
+
+  int i;
+  fprintf(file, "%s: ", name);
+  for(i = 0; i < length; i++) {
+    fprintf(file, "%0.3f ", array[i]); 
+  }
+  fprintf(file, "\n");
+
+}
+
+void PREFIX dump_eds(t_eds* eds) {
+  
+  dump_array(eds->centers, eds->cv_number, eds->output_file, "centers");
+  dump_array(eds->means, eds->cv_number, eds->output_file, "means");
+  dump_array(eds->ssd, eds->cv_number, eds->output_file, "ssd");
+  dump_array(eds->max_coupling_range, eds->cv_number, eds->output_file, "max_coupling_range");
+  dump_array(eds->max_coupling_rate, eds->cv_number, eds->output_file, "max_coupling_rate");
+  dump_array(eds->set_coupling, eds->cv_number, eds->output_file, "set_coupling");
+  dump_array(eds->current_coupling, eds->cv_number, eds->output_file, "current_coupling");
+  dump_array(eds->coupling_rate, eds->cv_number, eds->output_file, "coupling_rate");
+  dump_array(eds->coupling_accum, eds->cv_number, eds->output_file, "coupling_accum");
+  
+  int i;
+  fprintf(eds->output_file, "%s: ", "cv_map");
+  for(i = 0; i < eds->cv_number; i++) {
+    fprintf(eds->output_file, "%5d ", eds->cv_map[i]); 
+  }
+  fprintf(eds->output_file, "\n");
+
+  fprintf(eds->output_file, "simtemp: %f\n", eds->simtemp);
+  fprintf(eds->output_file, "cv_number: %d\n", eds->cv_number);
+  fprintf(eds->output_file, "update_period: %d\n", eds->update_period);
+  fprintf(eds->output_file, "update_calls: %d\n", eds->update_calls);
+
+}
+
+
+void PREFIX eds_write(t_eds* eds, long long int step) {
+
+  if(step % eds->update_period != 0)
+    return;
+
+  int i;
+
+  fprintf(eds->output_file, "%12d ", step);
+
+#ifndef DUMP_EDS
+
+  for(i = 0; i < eds->cv_number; i++) 
+    fprintf(eds->output_file, "%0.5f ", eds->current_coupling[i]);
+
+  //close file
+  fprintf(eds->output_file, "\n");
+#else
+  fprintf(eds->output_file, "\n");
+  dump_eds(eds);
+  fprintf(eds->output_file, "-------------------------");
+#endif//DUMP_EDS
+
 }

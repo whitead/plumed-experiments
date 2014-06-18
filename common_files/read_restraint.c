@@ -572,9 +572,9 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
       }
     } else if(!strcmp(word[0], "EDS")) {
       //EXAMPLE for adaptive
-      //EDS STRIDE 500 SIMTEMP 300 SEED 4143 CV LIST 1 2 4
+      //EDS STRIDE 500 SIMTEMP 300 SEED 4143 FILENAME FOO CV LIST 1 2 4
       //EDS CV CENTERS 0.5 2.5 2.3
-      //EDS CV RANGE 5 5 5
+      //EDS CV RANGES 5 5 5
       //EXAMPLE for fixed
       //EDS SIMTEMP 300 CV LIST 1 2 4
       //EDS CV CENTERS 0.5 2.5 2.3
@@ -605,17 +605,20 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	  for(icv = 0;iw < nw; iw++) {
 	    sscanf(word[iw], "%lf", &uno);
 	    eds.max_coupling_range[icv] = uno;
+	    eds.max_coupling_rate[icv] = eds.max_coupling_range[icv] / (10 * eds.update_period);
 	    fprintf(mtd_data->fplog, 
 		    "EDS: Will cap range of CV %d at %lf\n", 
 		    icv+1,
 		    eds.max_coupling_range[icv]);
 	    icv++;
 	  }
+	} else {
+	  plumed_error("Syntax is EDS CV RANGES.... or EDS CV CENTERS....\n");
 	}
       } else {
 
 	if(eds.cv_number != 0) {
-	  plumed_error("Syntax is EDS CV RANGE.... or EDS CV CENERS....\n");
+	  plumed_error("Syntax is EDS CV RANGES.... or EDS CV CENTERS....\n");
 	}
 
 	if(iw >= nw - 2 || strcmp(word[iw++], "STRIDE"))
@@ -632,11 +635,20 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	  plumed_error("Must specify SIMTEMP in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 4313 CV LIST 1 3]\n");
 	}
 
-	if(iw >= nw - 2 || strcmp(word[iw++], "SEED"))
-	  plumed_error("Must specify SEED in EDS [EDS STRIDE 500 SIMTEMP 300 CV LIST 1 3]\n");
-	int eds_seed;
-	if(!sscanf(word[iw++], "%d", &eds_seed)){
-	  plumed_error("Must specify SEED in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");
+	int eds_seed = 0;
+	if(!strcmp(word[iw], "SEED")) {
+	  if(!sscanf(word[++iw], "%d", &eds_seed)){
+	    plumed_error("Must use integer SEED\n");
+	  }
+	  iw++;
+	}
+
+	char* filename = "EDS_OUT";
+	if(!strcmp(word[iw], "FILENAME")) {
+	  if(!sscanf(word[iw++], "%s", filename)){
+	    plumed_error("Filename invalid\n");
+	  }
+	  iw++;
 	}
 		
 	if(iw < nw - 3 || !(strcmp(word[iw++], "CV") & strcmp(word[iw++], "LIST"))) {
@@ -650,7 +662,7 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	    i++;
 	  }
 	  cv_map = (int *) realloc(cv_map, sizeof(int) * i);
-	  eds_init(i, update_period, uno, eds_seed, 0, cv_map, &eds);
+	  eds_init(i, update_period, uno, eds_seed, 0, cv_map, (const char*) filename, &eds);
 	} else {
 	  plumed_error("Must specify CV List in EDS [EDS 500 CV LIST 1 3]\n");
 	}
