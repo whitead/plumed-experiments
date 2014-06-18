@@ -598,7 +598,7 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	    icv++;
 	  }
 	}
-	else if(!strcmp(word[iw++], "RANGES")) {
+	else if(!strcmp(word[iw - 1], "RANGES")) {
 	  if(eds.cv_number == 0) {
 	    plumed_error("Must define CVs first for EDS with [CV LIST 1 2 3]");
 	  }
