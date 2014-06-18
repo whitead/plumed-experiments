@@ -578,7 +578,7 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
       //EXAMPLE for fixed
       //EDS SIMTEMP 300 CV LIST 1 2 4
       //EDS CV CENTERS 0.5 2.5 2.3
-      //EDS CV COUPLING 34 23 4      
+      //EDS CV RANGES 34 23 4      
       if(!logical.eds) 
 	fprintf(mtd_data->fplog, "Enabling experiment directed simulation\n");
       logical.eds = 1;
@@ -598,7 +598,7 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	    icv++;
 	  }
 	}
-	else if(!strcmp(word[0], "RANGE")) {
+	else if(!strcmp(word[iw], "RANGES")) {
 	  if(eds.cv_number == 0) {
 	    plumed_error("Must define CVs first for EDS with [CV LIST 1 2 3]");
 	  }
