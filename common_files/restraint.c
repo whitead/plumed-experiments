@@ -309,13 +309,7 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
       fprintf(mtd_data->fplog,"|---END OF CALL \n");
       EXIT();
 #endif
-     
-      //ADW>
-      //handle independently treated CVs
-      if(colvar.b_treat_independent[i_c])
-	independent_pop_cv(i_c, ind_i_c);
-      //<ADW
- 
+      
     }
     
     mtd_data->time=colvar.it*(mtd_data->dt)+mtd_data->time_offset;
@@ -363,6 +357,15 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
     if(logical.debug_derivatives) debug_derivatives(mtd_data,ntp);
     
     if(ntp) print_colvar_enercv(mtd_data->time);	        	// dump COLVAR
+
+
+    for(i_c=0;i_c<ncv;i_c++){
+      //ADW>
+      //handle independently treated CVs
+      if(colvar.b_treat_independent[i_c])
+	independent_pop_cv(i_c, ind_i_c);
+      //<ADW
+    }
 
   }
 
