@@ -886,7 +886,9 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
           iw++; sscanf(word[iw], "%lf", &uno); cvint.lower_limit[icv-1]=(real)uno; read_lower_limit=1;
         } else if(!strcmp(word[iw],"UPPER_LIMIT")) {
           iw++; sscanf(word[iw], "%lf", &uno); cvint.upper_limit[icv-1]=(real)uno; read_upper_limit=1;
-        } else {
+        } else if(!strcmp(word[iw], "CORRECT_BIAS")){
+	  logical.interval_correct_bias = 1;
+	} else {
           plumed_error("Unknown flag for keyword INTERVAL");
         };
       }

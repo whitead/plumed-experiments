@@ -373,6 +373,7 @@ struct logical_s
   // <JFD
   //ADW>
   int    target_distribution; //do target distribution metadynamisc
+  int    interval_correct_bias; //correct bias outside interval
   // <ADW
   int    lreflect[nconst_max];
   int    ureflect[nconst_max];
@@ -1439,6 +1440,9 @@ void grid_initialize(struct grid_s *grid);
 void grid_resize_minigrid(struct grid_s *grid, real* delta, real cutoff);
 void grid_create_one2multi(int **one2multi, int size, int ncv, int *bin);
 void grid_addhills(struct grid_s *grid, real ww, real* ss,real* delta,int rank,int npe);
+// ADW>
+void grid_addhills_evenly(struct grid_s *grid, real ww, real* ss,real* delta,int rank,int npe);
+// ADW<
 real grid_getstuff(struct grid_s *grid, real* ss0,real* force);
 int  grid_multi2one(struct grid_s *grid, int* index_nd);
 void grid_write_tofile(struct grid_s *grid);

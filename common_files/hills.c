@@ -510,16 +510,18 @@ real PREFIX hills_engine(real* ss0,real* force){
       // <JFD
       Vbias += VhillsLast;
       if(force) for(icv=0;icv<ncv;icv++) if(colvar.on[icv]) {
+	    //ADW>	      
 	    if(logical.interval[icv]) {
-	      if((ss0[icv]> cvint.lower_limit[icv] && ss0[icv]<cvint.upper_limit[icv])) {
-		force[icv] += dp[icv] / colvar.delta_s[ih][icv] * VhillsLast;  // -dU/dCV
-	      }
+	      if((ss0[icv]> cvint.lower_limit[icv] && ss0[icv]<cvint.upper_limit[icv])) 
+		continue; //make sure force isn't added if interval is on
+	    }
+	      //ADW<
 	      // JFD>
 	      // Applying the product rule to McGovern-de Pablo hill, taking
 	      // derivatives of the numerator and denominator into separate
 	      // terms, results in one normal-looking but rescaled Gaussian 
 	      // force and one more complex boundary correction term.
-	    } else if (logical.mcgdp_hills && hills.mcgdp_reshape_flag[icv]) {
+	    if (logical.mcgdp_hills && hills.mcgdp_reshape_flag[icv]) {
 	      // Compute how large the hill is where it hits the lower bound
 	      lbound_exp_argument = (ss0[icv] - hills.hill_lower_bounds[icv]) * (ss0[icv] - hills.hill_lower_bounds[icv])/(2 * colvar.delta_s[ih][icv] * colvar.delta_s[ih][icv]);
 	      if (lbound_exp_argument < DP2CUTOFF) {
@@ -861,6 +863,10 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
   int *index_1d_para;
   real *pot_for_para;
 
+  //ADW>
+  int interval_flag = 0;
+  //ADW<
+
   // JFD>
   // Temporaries for the Dicksonian tempering rule
   real bias_at_hill_center;
@@ -880,12 +886,6 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
 
   ncv  = grid->ncv;
 
-  // allocate temp array
-  xx = float_1d_array_alloc(ncv);
-  dp = float_1d_array_alloc(ncv);
-  index_nd = int_1d_array_alloc(ncv); 
-  force_at_hill_center = float_1d_array_alloc(ncv);
-  force_at_grid_point = float_1d_array_alloc(ncv);
 
 // preliminary checks
 // 1) if the HILLS center is inside the grid
@@ -899,11 +899,37 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
     if(grid->dx[j] > delta[grid->index[j]] / 2.0) plumed_error("GRID bin size is too large compared to HILLS sigma."); 
     if(fabs((grid->oldelta[j] - delta[grid->index[j]]) / delta[grid->index[j]]) > 0.05) flag = 1; 
   }
+
   // recalculate the dimension of the reduced grid if delta is changed
   if(flag == 1) {
     grid_resize_minigrid(grid, delta, DP2CUTOFF);
     for(j = 0; j < ncv; j++) grid->oldelta[j] = delta[grid->index[j]];
   }
+
+  //ADW>
+  //Now we check if we're outside the interval. If we are, do nothing. 
+  //If we are in the interval, we add compensating hills outside of it.
+  for(j = 0; j < ncv; j++) {
+    if(logical.interval[j])
+      if((ss[j] =< cvint.lower_limit[j] || ss[j] >= cvint.upper_limit[j])) 
+	interval_flag |= 1;
+  }
+  //add the hills evenly now 
+  if(!interval_flag)
+    grid_addhills_interval_evenly(grid, ww, ss, delta, rank, npe);
+  else
+    return;
+  }
+
+  //ADW<
+
+  // allocate temp array
+  xx = float_1d_array_alloc(ncv);
+  dp = float_1d_array_alloc(ncv);
+  index_nd = int_1d_array_alloc(ncv); 
+  force_at_hill_center = float_1d_array_alloc(ncv);
+  force_at_grid_point = float_1d_array_alloc(ncv);
+
 
   // temporary array for parallel computation
   index_1d_para = int_1d_array_alloc(grid->minisize);
@@ -1053,6 +1079,88 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
   free_1dr_array_alloc(pot_for_para);
   free_1di_array_alloc(index_1d_para);
 }
+
+//ADW>
+//-------------------------------------------------------------------------------------------
+// add a hills on the grid to the grid evenly. Only changes potential
+void PREFIX grid_addhills_interval_evenly(struct grid_s *grid, real ww, real* ss, real* delta,int rank,int npe)
+{
+
+  int   i, j, ncv, flag;
+  real *xx, *dp, dp2, expo;
+  int  *index_nd, index_1d, dp2index;
+  int *index_1d_para;
+  real *pot_for_para;
+
+  ncv  = grid->ncv;
+
+  //hill height is not scaled by exponential
+  expo     = ww;
+      
+
+  // allocate temp array
+  xx = float_1d_array_alloc(ncv);
+  dp = float_1d_array_alloc(ncv);
+  index_nd = int_1d_array_alloc(ncv); 
+
+
+  // temporary array for parallel computation
+  index_1d_para = int_1d_array_alloc(grid->size);
+  pot_for_para = float_1d_array_alloc(grid->size * (1 + ncv));
+  for(i = 0; i < grid->size; i++) index_1d_para[i] = 0;
+  for(i = 0; i < grid->size * (1 + ncv); i++) pot_for_para[i] = 0.0;
+
+  for(i = rank; i < grid->size; i += npe) {
+
+    index_1d_para[i] = -1; // it means "no force on this point"
+
+    flag = 0;
+    for(j = 0; j < ncv; j++) {
+      xx[j] = ss[grid->index[j]] - grid->lbox[j] + grid->dx[j] * grid->one2multi[i][j];
+      if(grid->period[j]) xx[j] -= grid->lbox[j] * floor(xx[j]/grid->lbox[j]);
+      index_nd[j] = floor((xx[j]-grid->min[j])/grid->dx[j]);
+      //with single precision, it is possible that xx - min = 2 * min if xx[j] is very close to min
+      if(index_nd[j]<0 || index_nd[j] >=grid->bin[j])  flag=1;
+    }
+    if(flag == 1) continue; // out of grid 
+
+    // from multidimensional index to mono
+    index_1d = grid_multi2one(grid, index_nd);
+
+    //check if this point is in the interval
+    flag = 0;
+    for(j = 0; j < ncv; j++) {
+      if(logical.interval[j]) {
+	xx[j] = grid->min[j] + grid->dx[j] * index_nd[j];
+	if((xx[j] =< cvint.lower_limit[j] || xx[j] >= cvint.upper_limit[j])) 
+	  flag |= 1;
+      }
+    }
+
+    // Add grid bias potential value    
+    if(flag)
+      pot_for_para[i * (ncv + 1)] = expo;
+    index_1d_para[i]=index_1d;
+  }
+
+  if(npe>1){ 
+    plumed_sum (&mtd_data,grid->size*(ncv+1),pot_for_para);
+    plumed_sumi(&mtd_data,grid->size,index_1d_para);
+  }
+
+  for(i=0;i<grid->size;i++) {
+    if(index_1d_para[i]<0) continue;
+    grid->pot[index_1d_para[i]]+=pot_for_para[i*(ncv+1)];
+  }
+
+  // deallocation
+  free_1dr_array_alloc(xx);
+  free_1di_array_alloc(index_nd);
+  free_1dr_array_alloc(pot_for_para);
+  free_1di_array_alloc(index_1d_para);
+  
+}
+//ADW<
 
 //-------------------------------------------------------------------------------------------
 // from multidimensional index to mono dimensional
