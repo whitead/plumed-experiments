@@ -328,7 +328,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
 	     hills.wwr / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)));
 #endif
   }
-  if(logical.mcgdp_hills) {
+  if(logical.mcgdp_hills && !logical.interval_correct_bias) {
     //check if the colvar is within the boundaries
     for (icv=0; icv<ncv; icv++) if(colvar.on[icv]) {
 	if (hills.mcgdp_reshape_flag[icv] == 1) {
@@ -908,17 +908,23 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
 
   //ADW>
   //Now we check if we're outside the interval. If we are, do nothing. 
-  //If we are in the interval, we add compensating hills outside of it.
-  for(j = 0; j < ncv; j++) {
-    if(logical.interval[j])
-      if((ss[j] =< cvint.lower_limit[j] || ss[j] >= cvint.upper_limit[j])) 
-	interval_flag |= 1;
-  }
-  //add the hills evenly now 
-  if(!interval_flag)
-    grid_addhills_interval_evenly(grid, ww, ss, delta, rank, npe);
-  else
-    return;
+  //If we are in the interval, we add compensating hills inside of it.
+  if(logical.interval_correct_bias) {
+    for(j = 0; j < ncv; j++)
+      if(logical.interval[j])
+	if((ss[j] <= cvint.lower_limit[j] || ss[j] >= cvint.upper_limit[j])) 
+	  interval_flag |= 1;
+    //add the hills evenly now 
+    /*
+    if(!interval_flag)
+      grid_addhills_interval_evenly(grid, ww, ss, delta, rank, npe);
+    else //don't add hills if we're outside the interval
+      return;
+    */
+    if(interval_flag) {
+      grid_addhills_interval_evenly(grid, ww, ss, delta, rank, npe);
+      return;
+    }
   }
 
   //ADW<
@@ -996,6 +1002,8 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
 	    if(xx[j] > hills.hill_lower_bounds[j] && xx[j] < hills.hill_upper_bounds[j]) {
 	      erf_index = (xx[j] - hills.hill_lower_bounds[j])/(hills.hill_upper_bounds[j]-hills.hill_lower_bounds[j]) * GTAB;
 	      mcgdp_VHillDenom *= hills.erf[erf_index][j] / 2.0;
+	    } else {
+	      expo = 0;
 	    }
           }
         }
@@ -1087,20 +1095,33 @@ void PREFIX grid_addhills_interval_evenly(struct grid_s *grid, real ww, real* ss
 {
 
   int   i, j, ncv, flag;
-  real *xx, *dp, dp2, expo;
-  int  *index_nd, index_1d, dp2index;
+  real *xx, expo;
+  int  *index_nd, index_1d;
   int *index_1d_para;
   real *pot_for_para;
 
   ncv  = grid->ncv;
+  
+  /*
+    Left over from when I was doing negative compensating hills
+  //calculate volume of region
+  real vol = 1;
+  //check if this point is in the interval
+  for(j = 0; j < ncv; j++) {
+    if(logical.interval[j])
+      vol *= (cvint.upper_limit[j] - cvint.lower_limit[j]) / delta[j];
+    else
+      vol *= (grid->max[j] - grid->min[j]) / delta[j];
+  }
+  
+  //same volume as hill, applied over the grid, and negative
+  expo     = -2 * sqrt(M_PI) * ww / vol);
+  */
 
-  //hill height is not scaled by exponential
-  expo     = ww;
-      
+  expo = ww;
 
   // allocate temp array
   xx = float_1d_array_alloc(ncv);
-  dp = float_1d_array_alloc(ncv);
   index_nd = int_1d_array_alloc(ncv); 
 
 
@@ -1116,7 +1137,7 @@ void PREFIX grid_addhills_interval_evenly(struct grid_s *grid, real ww, real* ss
 
     flag = 0;
     for(j = 0; j < ncv; j++) {
-      xx[j] = ss[grid->index[j]] - grid->lbox[j] + grid->dx[j] * grid->one2multi[i][j];
+      xx[j] = ss[grid->index[j]] - grid->lbox[j] + grid->dx[j] * grid->one2multi_full[i][j];
       if(grid->period[j]) xx[j] -= grid->lbox[j] * floor(xx[j]/grid->lbox[j]);
       index_nd[j] = floor((xx[j]-grid->min[j])/grid->dx[j]);
       //with single precision, it is possible that xx - min = 2 * min if xx[j] is very close to min
@@ -1132,7 +1153,7 @@ void PREFIX grid_addhills_interval_evenly(struct grid_s *grid, real ww, real* ss
     for(j = 0; j < ncv; j++) {
       if(logical.interval[j]) {
 	xx[j] = grid->min[j] + grid->dx[j] * index_nd[j];
-	if((xx[j] =< cvint.lower_limit[j] || xx[j] >= cvint.upper_limit[j])) 
+	if((xx[j] <= cvint.lower_limit[j] || xx[j] >= cvint.upper_limit[j])) 
 	  flag |= 1;
       }
     }
