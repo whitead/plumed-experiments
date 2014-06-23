@@ -299,7 +299,9 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
   // <JFD
   // ADW>
   if(logical.target_distribution) {
-    this_ww /= exp(mtd_data->boltz *colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL));
+    // p_c = exp(-F_g / kT) => F_g / kT = ln[P(target)] => F_g = kT ln[P(target)]
+    //no units necessary, only in post-processing
+    this_ww /= exp(grid_getstuff(&target_grid, colvar.ss0,  NULL));
     if(logical.welltemp)//to prevent very large hills
       this_ww = fmin(hills.wwr, this_ww);
 #ifdef OUTPUT_TARGET_INFO   
