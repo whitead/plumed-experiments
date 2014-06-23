@@ -1104,14 +1104,16 @@ void PREFIX grid_addhills_interval_evenly(struct grid_s *grid, real ww, real* ss
   
   //now we add a hill the same size as if the hill had been
   //added evenly across the interval region
-  real vol = 1;
+  real int_vol = 1;
+  real tot_vol = 1;
   for(j = 0; j < ncv; j++) {
     if(logical.interval[j])
-      vol *= (cvint.upper_limit[j] - cvint.lower_limit[j]) / delta[j];
+      int_vol *= (cvint.upper_limit[j] - cvint.lower_limit[j]) / delta[j];
     else
-      vol *= (grid->max[j] - grid->min[j]) / delta[j];
+      int_vol *= (grid->max[j] - grid->min[j]) / delta[j];
+    tot_vol *= (grid->max[j] - grid->min[j]) / delta[j];
   }  
-  expo     = 2 * sqrt(M_PI) * ww / vol;
+  expo     = 2 * sqrt(M_PI) * ww / (tot_vol - int_vol);
 
   // allocate temp array
   xx = float_1d_array_alloc(ncv);
