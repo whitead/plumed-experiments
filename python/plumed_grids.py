@@ -484,13 +484,5 @@ def test():
     plt.savefig("uc_out.png")
     g.write(sys.stdout)    
 
-def load_plumed_grid(filename):
-    import matplotlib.pyplot as plt
-    g = Grid()
-    g.read_plumed_grid(filename)
-    g.plot_2d("plot.png")
-
 if __name__ == "__main__":
-    #test()
-    import sys
-    load_grid(sys.argv[1])
+    test()
