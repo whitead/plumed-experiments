@@ -881,7 +881,8 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
   real lbound_exp_argument, ubound_exp_argument;
   real lbound_gaussian, ubound_gaussian;
   real mcdgp_force_correction;
-  int erf_index, lbound_exp_index, ubound_exp_index;
+  int lbound_exp_index, ubound_exp_index;
+  int erf_index[nconst_max];
   // <JFD
 
   ncv  = grid->ncv;
@@ -909,22 +910,16 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
   //ADW>
   //Now we check if we're outside the interval. If we are, do nothing. 
   //If we are in the interval, we add compensating hills inside of it.
-  if(logical.interval_correct_bias) {
-    for(j = 0; j < ncv; j++)
-      if(logical.interval[j])
-	if((ss[j] <= cvint.lower_limit[j] || ss[j] >= cvint.upper_limit[j])) 
-	  interval_flag |= 1;
-    //add the hills evenly now 
-    /*
-    if(!interval_flag)
+  for(j = 0; j < ncv; j++)
+    if(logical.interval[grid->index[j]])
+      if((ss[grid->index[j]] <= cvint.lower_limit[j] || ss[grid->index[j]] >= cvint.upper_limit[j])) 
+	interval_flag |= 1;
+
+  //add the hills evenly now if correction is on
+  if(interval_flag) {
+    if(logical.interval_correct_bias)
       grid_addhills_interval_evenly(grid, ww, ss, delta, rank, npe);
-    else //don't add hills if we're outside the interval
-      return;
-    */
-    if(interval_flag) {
-      grid_addhills_interval_evenly(grid, ww, ss, delta, rank, npe);
-      return;
-    }
+    return;
   }
 
   //ADW<
@@ -970,7 +965,11 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
 
     // add the gaussian on the GRID
     dp2 = 0.;
-    for(j = 0; j < ncv; j++) {
+    interval_flag = 0;
+    for(j = 0; j < ncv; j++) {      
+      if(logical.interval[j])
+	if((xx[j] <= cvint.lower_limit[j] || xx[j] >= cvint.upper_limit[j])) 
+	  interval_flag |= 1;
       xx[j] = grid->min[j] + grid->dx[j] * index_nd[j];
       dp[j] = xx[j] - ss[grid->index[j]];
       if(grid->period[j]) dp[j] -= grid->lbox[j] * rint(dp[j]/grid->lbox[j]); 
@@ -979,7 +978,7 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
     }
     dp2 *= 0.5;
 
-    if(dp2 < grid->cutoff){    
+    if(dp2 < grid->cutoff && !interval_flag){ 
       dp2index =  dp2 * GTAB / DP2CUTOFF;
       expo     = ww * hills.exp[dp2index];
       // JFD>
@@ -1000,8 +999,8 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
         for (j = 0; j < ncv; j++) if(colvar.on[j]) {
           if (hills.mcgdp_reshape_flag[j] == 1) {
 	    if(xx[j] > hills.hill_lower_bounds[j] && xx[j] < hills.hill_upper_bounds[j]) {
-	      erf_index = (xx[j] - hills.hill_lower_bounds[j])/(hills.hill_upper_bounds[j]-hills.hill_lower_bounds[j]) * GTAB;
-	      mcgdp_VHillDenom *= hills.erf[erf_index][j] / 2.0;
+	      erf_index[j] = (xx[j] - hills.hill_lower_bounds[j])/(hills.hill_upper_bounds[j]-hills.hill_lower_bounds[j]) * GTAB;
+	      mcgdp_VHillDenom *= hills.erf[erf_index[j]][j] / 2.0;
 	    } else {
 	      expo = 0;
 	    }
@@ -1014,6 +1013,7 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
       // Add grid bias potential value
       pot_for_para[i * (ncv + 1)] = expo;
       // Add grid bias force vector
+      //if mcgdb, expo includes denominator already
       for(j = 0; j < ncv; j++) pot_for_para[i * (ncv + 1) + 1 + j] = dp[j] / delta[grid->index[j]] * expo;
       
       // JFD>
@@ -1055,8 +1055,9 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
             }
             // Compute the term corresponding to taking the derivative of the
             // hill function's denominator
+	    //expo has the denominator of product of erf sums
             if (lbound_gaussian > 0 || ubound_gaussian > 0) {
-              mcdgp_force_correction = M_sqrt2oPI * (lbound_gaussian - ubound_gaussian) * expo / hills.erf[erf_index][j] * delta[grid->index[j]];
+              mcdgp_force_correction = M_sqrt2oPI * (lbound_gaussian - ubound_gaussian) * expo / (hills.erf[erf_index[j]][j] * delta[grid->index[j]]);
             } else {
               mcdgp_force_correction = 0;
             }
