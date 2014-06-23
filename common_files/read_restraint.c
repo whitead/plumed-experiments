@@ -1723,6 +1723,7 @@ void PREFIX read_defaults()
     // <JFD
     //ADW >
     colvar.stoch_sample         = 1.;
+    logical.interval_correct_bias = 0;
     // <ADW
     cvsteer.slope[icv]          = 0.;
     cvsteer.annealing[icv]      = 0;
