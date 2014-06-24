@@ -3,6 +3,12 @@ import numpy as np
 from scipy.integrate import simps
 import copy
 
+NDITER = True
+try:
+    np.nditer
+except AttributeError:
+    NDITER = False
+
 class Grid(object):
     """PLUMED grid class
     
@@ -188,16 +194,19 @@ class Grid(object):
         
             
     def set_min(self,min):
-        #Change the mins. Fills with previous boundaries
+        """Change the mins. Fills with previous boundaries if extending, otherwise crops"""
         g = self.clone()
         self._clear()
         for t,m,x,b,p in zip(g.types, min, g.max, g.nbins, g.periodic):
             self.add_cv(t,m,x,b,p)
         self.add(g)
+        #set values to g minimum
+        self.pot[np.where(self.pot == 0)] = np.min(g.pot)
+
 
 
     def set_max(self,max):
-        #Change the maxs. Fills with previous boundaries
+        """Change the maxs. Fills with previous boundaries if extending, otherwise crops"""
         g = self.clone()
         self._clear()
         for t,m,x,b,p in zip(g.types, g.min, max, g.nbins, g.periodic):
@@ -215,6 +224,10 @@ class Grid(object):
 
     def to_index(self, x, i):
         return max(0, min(self.nbins[i] - 1, int(floor( (x - self.min[i]) / self.dx[i]))))
+
+    def index_to_coord(self, index):
+        return [self.min[i] + self.dx[i] * j for i,j in zip(range(self.ncv), index)]
+
 
     def np_to_index(self, x):
         return np.fmax(np.zeros(np.shape(x)), np.fmin(np.array(self.nbins) - 1, np.floor( (x - np.array(self.min)) / np.array(self.dx))))
@@ -247,17 +260,18 @@ class Grid(object):
             index[i] = self.to_index(xi, i)
         return self.pot[tuple(index)]
 
+
     def add(self, other_grid):
         if(np.shape(self.pot) == np.shape(other_grid.pot)):
-            self.pot += other_grid.pot
-            return
-        if(self.meshgrid is None):
-            self.meshgrid = np.meshgrid(*[np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)], indexing='ij')
-        for x in np.nditer(self.meshgrid):
-            indexo = other_grid.np_to_index(x)
-            indexs = self.np_to_index(x)
-            self.pot[tuple(indexs)] += other_grid.pot[tuple(indexo)]
-        
+            if(self.min == other_grid.min):
+                if(self.max == other_grid.max):
+                    self.pot += other_grid.pot
+                    return
+
+        def do_add(x):
+            self.pot[tuple(x)] += other_grid.get_value(self.index_to_coord(x))
+        self._enumerate_grid(do_add)
+
 
     def _print_header_array(self, name, array, output):
         output.write('#! {} '.format(name))
@@ -276,35 +290,34 @@ class Grid(object):
         zoom_factor = np.array(new_shape, dtype='float') / self.nbins
         self.pot = zoom(self.pot, zoom_factor, prefilter=True, mode='nearest')
         self.meshgrid = None
-                        
+
     def _enumerate_grid(self, fxn, dim=None, indices=[], end_fxn=None):
+        """Apply fxn over the grid. end_fxn will be called on only edges
+        """
         if(dim is None):
             dim = self.ncv - 1
+        if(end_fxn is None):
+            end_fxn = lambda x: x
         if(dim > 0):
             for i in range(self.nbins[dim]):
                 self._enumerate_grid(fxn, 
                                      dim - 1, 
                                      Grid._prepend_emit(indices, i), end_fxn)
-            if(end_fxn is not None):
-                self._enumerate_grid(fxn, 
-                                     dim - 1, 
-                                     Grid._prepend_emit(indices, self.nbins[dim]), end_fxn)
+            self._enumerate_grid(fxn, 
+                                 dim - 1, 
+                                 Grid._prepend_emit(indices, self.nbins[dim]), end_fxn)
 
                 
         else:
-            #check if we are at an end
-            if(end_fxn is not None):
-                #check if any index is at an end
-                if(reduce(lambda x,y: x or y, [x == y for x,y in zip(indices,self.nbins)], False)):
-                    for i in range(self.nbins[dim] + 1):
-                        end_fxn(Grid._prepend_emit(indices, i))
-                else:
-                    for i in range(self.nbins[dim]):
-                        fxn(Grid._prepend_emit(indices, i))
-                    end_fxn(Grid._prepend_emit(indices, self.nbins[dim]))
+            #check if any index is at an end
+            if(reduce(lambda x,y: x or y, [x == y for x,y in zip(indices,self.nbins)], False)):
+                for i in range(self.nbins[dim] + 1):
+                    end_fxn(Grid._prepend_emit(indices, i))
             else:
                 for i in range(self.nbins[dim]):
                     fxn(Grid._prepend_emit(indices, i))
+                end_fxn(Grid._prepend_emit(indices, self.nbins[dim]))
+
 
 
 
@@ -320,7 +333,7 @@ class Grid(object):
         indices = [i if i < nb else nb - 1 for i,nb in zip(indices,self.nbins)]
         output.write('{: 10.8f}\n'.format(self.pot[tuple(indices)]))        
     
-    def plot_2d(self, filename, cmap='gist_earth', resolution=None, axis=(1,0)):
+    def plot_2d(self, filename, cmap='jet', resolution=None, axis=(1,0)):
         assert self.dims >= 2
         import matplotlib.pyplot as plt
         old_bins = self.nbins
@@ -332,7 +345,9 @@ class Grid(object):
             data = self.pot
         if(resolution is not None):
             self.set_bin_number([resolution if x in axis else self.nbins[x] for x in range(self.dims)])
-        plt.imshow(np.swapaxes(data, 0, axis[0]), interpolation='none', cmap=cmap, extent=[self.min[axis[0]], self.max[axis[0]],self.max[axis[1]],self.min[axis[1]]])
+
+        plt.figure()
+        plt.imshow(np.swapaxes(data, 0, axis[0]), interpolation='nearest', cmap=cmap, extent=[self.min[axis[0]], self.max[axis[0]],self.max[axis[1]],self.min[axis[1]]])
         if(resolution is not None):
             self.set_bin_number(old_bins)
         plt.colorbar()
@@ -351,7 +366,7 @@ class Grid(object):
 
     def plot_2d_region(self, filename, *region_functions):
         assert self.dims >= 2
-        cmap = 'gist_earth'
+        cmap = 'jet'
         axis=(1,0)
         if(self.meshgrid is None):
             self.meshgrid = np.meshgrid(*[np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)], indexing='ij')
