@@ -374,6 +374,7 @@ struct logical_s
   //ADW>
   int    target_distribution; //do target distribution metadynamisc
   int    interval_correct_bias; //correct bias outside interval
+  int    global_tempering;//only turn on tempering when a certin max hill height has been met
   // <ADW
   int    lreflect[nconst_max];
   int    ureflect[nconst_max];
@@ -534,6 +535,10 @@ struct hills_s
   int      nwalkers;
   int      idwalker;
   real   Vhills;					// Hills potential
+  //ADW>
+  real   sup_ww; //highest hill added
+  real   global_tempering_ratio;
+  //ADW<
   // JFD>
   // Extra information for depositing McGovern-de Pablo hills
   int mcgdp_reshape_flag[nconst_max];

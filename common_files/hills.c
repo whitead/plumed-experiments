@@ -284,13 +284,25 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
 
   if(hills.max_height>0.0) hills.wwr=hills.rate*(colvar.it-last_hill_at_this_step)*mtd_data->dt;
 
+  //store and check supremum if we're doing global tempering
+  if(logical.global_tempering) {
+    hills.sup_ww = fmax(hills.sup_ww, hills.Vhills);
+    if(hills.sup_ww > hills.wwr * hills.global_tempering_ratio) {
+      logical.global_tempering = 0;
+      printf("----------ENABLING TEMPERING--------------\n");
+    }
+  }
+  // <ADW
+
+
   // ADD THE HILL
   // new hill height 
   this_ww = hills.wwr;
   if(logical.welltemp) {
   /* since hills are added after the calculation of the bias potential, we can reuse
      the stored Vhills to decide the hills height*/
-    this_ww *= exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp));
+    if(!logical.global_tempering)
+      this_ww *= exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp));
   }
   // JFD>
   if(logical.transition_tempering) {
@@ -302,7 +314,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     // p_c = exp(-F_g / kT) => F_g / kT = ln[P(target)] => F_g = kT ln[P(target)]
     //no units necessary, only in post-processing
     this_ww /= exp(grid_getstuff(&target_grid, colvar.ss0,  NULL));
-    if(logical.welltemp)//to prevent very large hills
+    if(logical.welltemp && !(hills.sup_ww > 0))//to prevent very large hills. The second check is to see if global tempering was on
       this_ww = fmin(hills.wwr, this_ww);
 #ifdef OUTPUT_TARGET_INFO   
     printf("target value is %f\n", 
@@ -344,7 +356,6 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
 	}
       }
   }
-  // <ADW
 
   
   for(icv=0;icv<ncv;icv++) this_ss[icv]    = colvar.ss0[icv];    	// new hill center

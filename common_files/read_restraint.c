@@ -482,6 +482,11 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
         } else if(!strcmp(word[iw],"DICKSONIAN_TEMPERING")){
           logical.dicksonian_tempering = 1;
         // <JFD
+	} else if(!strcmp(word[iw],"GLOBAL_TEMPERING")){
+	// ADW>		  
+	  logical.global_tempering = 1;
+          iw++; sscanf(word[iw], "%lf", &uno); hills.global_tempering_ratio = (real) uno;
+	//ADW<
         } else {
           plumed_error("Unknown flag for keyword WELLTEMPERED");
         }
@@ -1610,6 +1615,10 @@ void PREFIX read_defaults()
   logical.transition_tempering  = 0;
   logical.mcgdp_hills      = 0;
   // <JFD
+  //ADW>
+  hills.sup_ww                  = 0;
+  logical.global_tempering      = 0;
+  //ADW<
   logical.tamd                  = 0;
   logical.debug                 = 0;
   logical.parallel_hills        = 0;
