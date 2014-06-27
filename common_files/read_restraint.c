@@ -984,7 +984,9 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
           iw++; sscanf(word[iw], "%lf", &uno); cvint.lower_limit[icv-1]=(real)uno; read_lower_limit=1;
         } else if(!strcmp(word[iw],"UPPER_LIMIT")) {
           iw++; sscanf(word[iw], "%lf", &uno); cvint.upper_limit[icv-1]=(real)uno; read_upper_limit=1;
-        } else {
+        } else if(!strcmp(word[iw], "CORRECT_BIAS")){
+	  logical.interval_correct_bias = 1;
+	} else {
           plumed_error("Unknown flag for keyword INTERVAL");
         };
       }
@@ -1706,6 +1708,11 @@ void PREFIX read_defaults()
   logical.transition_tempering  = 0;
   logical.mcgdp_hills      = 0;
   // <JFD
+  //ADW >
+  colvar.stoch_sample         = 1.;
+  eds.cv_number               = 0;
+  logical.interval_correct_bias = 0;
+  // <ADW
   logical.tamd                  = 0;
   logical.debug                 = 0;
   logical.parallel_hills        = 0;
@@ -1817,10 +1824,6 @@ void PREFIX read_defaults()
     // JFD>
     hills.mcgdp_reshape_flag[icv] = 0;
     // <JFD
-    //ADW >
-    colvar.stoch_sample         = 1.;
-    eds.cv_number               = 0;
-    // <ADW
     cvsteer.slope[icv]          = 0.;
     cvsteer.annealing[icv]      = 0;
     stopwhen.actmin[icv]        = 0;
