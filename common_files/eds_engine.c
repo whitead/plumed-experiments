@@ -68,7 +68,8 @@ void PREFIX eds_init(int cv_number, real update_period,
 
   eds->output_file = fopen(filename, "w");
 
-  eds->update_period = update_period;
+  //divide it by 2 so we spend half equilibrating and half collecting statistics.
+  eds->update_period = update_period / 2;
   eds->update_calls = 0;
   eds->b_equilibration = 1;
   eds->b_hard_coupling_range = b_hard_coupling_range;
@@ -246,7 +247,7 @@ void PREFIX dump_eds(t_eds* eds) {
 
 void PREFIX eds_write(t_eds* eds, long long int step) {
 
-  if(step % eds->update_period != 0)
+  if(eds->update_calls % eds->update_period != 0)
     return;
 
   int i;
