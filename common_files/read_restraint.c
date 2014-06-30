@@ -643,16 +643,18 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	  iw++;
 	}
 
-	char* filename = "EDS_OUT";
+	char filename[200];
 	if(!strcmp(word[iw], "FILENAME")) {
-	  if(!sscanf(word[iw++], "%s", filename)){
+	  if(!sscanf(word[++iw], "%s", filename)){
 	    plumed_error("Filename invalid\n");
 	  }
 	  iw++;
+	} else {
+	  strcpy(filename, "EDS_OUT");
 	}
 		
-	if(iw < nw - 3 || !(strcmp(word[iw++], "CV") & strcmp(word[iw++], "LIST"))) {
-	  int* cv_map = (int*) malloc(sizeof(int) * colvar.nconst);
+	if(iw < nw - 2 && !strcmp(word[iw++], "CV") && !strcmp(word[iw++], "LIST")) {
+	  int* cv_map = (int*) malloc(sizeof(int) * nconst_max);
 	  for(i = 0;iw < nw; iw++) {
 	    sscanf(word[iw], "%d", &icv);
 	    cv_map[i] = icv - 1;
