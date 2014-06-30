@@ -106,13 +106,14 @@ real PREFIX eds_engine(real* ss0, real* force,
   real bias_energy = 0.0;
   int i;  
 
-  eds->update_calls++;
 
   if(eds->update_calls == 0) {
     for(i = 0; i < eds->cv_number; i++) {
       eds->max_coupling_rate[i] = eds->max_coupling_range[i] / (10 * eds->update_period);
     }
   }
+
+  eds->update_calls++;
 
   int b_finished_equil_flag = 1;
   real delta;
@@ -247,24 +248,24 @@ void PREFIX dump_eds(t_eds* eds) {
 
 void PREFIX eds_write(t_eds* eds, long long int step) {
 
-  if(eds->update_calls % eds->update_period != 0)
-    return;
-
-  int i;
-
-  fprintf(eds->output_file, "%12d ", step);
-
+  if(eds->update_calls % eds->update_period == 0) {
+    
+    int i;
+    
+    fprintf(eds->output_file, "%12d ", step);
+    
 #ifndef DUMP_EDS
-
-  for(i = 0; i < eds->cv_number; i++) 
-    fprintf(eds->output_file, "%0.5f ", eds->current_coupling[i]);
-
-  //close file
-  fprintf(eds->output_file, "\n");
+    
+    for(i = 0; i < eds->cv_number; i++) 
+      fprintf(eds->output_file, "%0.5f ", eds->current_coupling[i]);
+    
+    //close file
+    fprintf(eds->output_file, "\n");
 #else
-  fprintf(eds->output_file, "\n");
-  dump_eds(eds);
-  fprintf(eds->output_file, "-------------------------");
+    fprintf(eds->output_file, "\n");
+    dump_eds(eds);
+    fprintf(eds->output_file, "-------------------------");
 #endif//DUMP_EDS
-
+  }
+  
 }
