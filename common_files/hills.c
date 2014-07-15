@@ -1011,9 +1011,9 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
         mcgdp_VHillDenom = 1.0;
         for (j = 0; j < ncv; j++) if(colvar.on[j]) {
           if (hills.mcgdp_reshape_flag[j] == 1) {
-	    if(xx[j] > hills.hill_lower_bounds[j] && xx[j] < hills.hill_upper_bounds[j]) {
+	    if(xx[j] > hills.hill_lower_bounds[j] && xx[j] < hills.hill_upper_bounds[j]) {	      
 	      erf_index[j] = (xx[j] - hills.hill_lower_bounds[j])/(hills.hill_upper_bounds[j]-hills.hill_lower_bounds[j]) * GTAB;
-	      mcgdp_VHillDenom *= hills.erf[erf_index[j]][j] / 2.0;
+	      mcgdp_VHillDenom *= hills.erf[erf_index[j]][j];
 	    } else {
 	      expo = 0;
 	    }
@@ -1025,7 +1025,7 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
       
       // Add grid bias potential value
       pot_for_para[i * (ncv + 1)] = expo;
-      // Add grid bias force vector
+      // Add grid bias force vector. dp = (x - s) / sigma
       //if mcgdb, expo includes denominator already
       for(j = 0; j < ncv; j++) pot_for_para[i * (ncv + 1) + 1 + j] = dp[j] / delta[grid->index[j]] * expo;
       
@@ -1070,7 +1070,7 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
             // hill function's denominator
 	    //expo has the denominator of product of erf sums
             if (lbound_gaussian > 0 || ubound_gaussian > 0) {
-              mcdgp_force_correction = M_sqrt2oPI * (lbound_gaussian - ubound_gaussian) * expo / (hills.erf[erf_index[j]][j] * delta[grid->index[j]]);
+              mcdgp_force_correction = M_sqrt2oPI * (lbound_gaussian - ubound_gaussian) * expo / (2 * hills.erf[erf_index[j]][j] * delta[grid->index[j]]);
             } else {
               mcdgp_force_correction = 0;
             }
@@ -1089,8 +1089,8 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
   }
 
   for(i=0;i<grid->minisize;i++) {
-    if(index_1d_para[i]<0) continue;
-    grid->pot[index_1d_para[i]]+=pot_for_para[i*(ncv+1)];
+    if(index_1d_para[i]<0) continue;    
+    grid->pot[index_1d_para[i]]+=pot_for_para[i*(ncv+1)];    
     for(j=0;j<ncv;j++) grid->force[index_1d_para[i]][j] += pot_for_para[i*(ncv+1)+1+j];
   }
 

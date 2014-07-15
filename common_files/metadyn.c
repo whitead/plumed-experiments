@@ -1301,7 +1301,9 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
       for(cv_index = 0; cv_index < colvar.nconst; cv_index++) {
         if (hills.mcgdp_reshape_flag[cv_index] == 1) {
           for(j = 0; j <= GTAB; j++) {
+	    //k goes from 0 to (U - L) / (sqrt(2) * sigma)
             k = (real) (hills.hill_upper_bounds[cv_index] - hills.hill_lower_bounds[cv_index]) / (GTAB * M_sqrt2 * colvar.delta_r[cv_index]) * j;
+	    //the second argument goes from (U - L) / (sqrt(2) * sigma) to 0
             hills.erf[j][cv_index] = 0.5 * (erf(k) + erf((hills.hill_upper_bounds[cv_index] - hills.hill_lower_bounds[cv_index]) / (M_sqrt2 * colvar.delta_r[cv_index]) - k));
           }
         }

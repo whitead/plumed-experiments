@@ -546,6 +546,9 @@ struct hills_s
   real hill_lower_bounds[nconst_max];
   real n_hills_near_lower_bound;
   real n_hills_near_upper_bound;
+  //The first argument should the erf argument / GTAB
+  //where for McGdP, the erf argument should be between 0 and
+  // 1
   real erf[GTAB + 1][nconst_max];
   // <JFD
 };
