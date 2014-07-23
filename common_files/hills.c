@@ -964,7 +964,7 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
     flag = 0;
     for(j = 0; j < ncv; j++) {
       xx[j] = ss[grid->index[j]] - grid->minilbox[j] + grid->dx[j] * grid->one2multi[i][j];
-      if(grid->period[j]) xx[j] -= grid->lbox[j] * floor(xx[j]/grid->lbox[j]);
+      if(grid->period[j]) xx[j] -= grid->lbox[j] * int_floor((xx[j] - grid->min[j])/grid->lbox[j]);
       index_nd[j] = floor((xx[j]-grid->min[j])/grid->dx[j]);
       //with single precision, it is possible that xx - min = 2 * min if xx[j] is very close to min
       if(index_nd[j]<0 || index_nd[j] >=grid->bin[j])  flag=1;
@@ -1145,7 +1145,7 @@ void PREFIX grid_addhills_interval_evenly(struct grid_s *grid, real ww, real* ss
     flag = 0;
     for(j = 0; j < ncv; j++) {
       xx[j] = ss[grid->index[j]] - grid->lbox[j] + grid->dx[j] * grid->one2multi_full[i][j];
-      if(grid->period[j]) xx[j] -= grid->lbox[j] * floor(xx[j]/grid->lbox[j]);
+      if(grid->period[j]) xx[j] -= grid->lbox[j] * int_floor((xx[j] - grid->min[j])/grid->lbox[j]);
       index_nd[j] = floor((xx[j]-grid->min[j])/grid->dx[j]);
       //with single precision, it is possible that xx - min = 2 * min if xx[j] is very close to min
       if(index_nd[j]<0 || index_nd[j] >=grid->bin[j])  flag=1;
