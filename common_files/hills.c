@@ -320,26 +320,24 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     printf("target value is %f\n", 
 	   grid_getstuff(&target_grid, colvar.ss0,  NULL));
 
-    printf("target scale is exp(%f * %f * %f) = %f\n", 
-	   mtd_data->boltz, 
-	   colvar.simtemp, 
+    printf("target scale is exp(%f) = %f\n", 
 	   grid_getstuff(&target_grid, colvar.ss0,  NULL), 
-	   exp(mtd_data->boltz *colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)));
+	   exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));
 
     if(logical.welltemp)
       printf("Hill = fmin(%f, %f * %f * %f =  %f)\n",
 	     this_ww, 
 	     hills.wwr,
 	     exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)), 
-	     1. / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
+	     1. / exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
 	     hills.wwr * exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)) / 
-	         exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)));
+	         exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));
 
     else
       printf("Hill = %f * %f =  %f)\n",
 	     hills.wwr,
-	     1. / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
-	     hills.wwr / exp(mtd_data->boltz * colvar.simtemp * grid_getstuff(&target_grid, colvar.ss0,  NULL)));
+	     1. / exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
+	     hills.wwr / exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));
 #endif
   }
   if(logical.mcgdp_hills && !logical.interval_correct_bias) {
