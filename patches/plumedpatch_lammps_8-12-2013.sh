@@ -337,7 +337,7 @@ void FixPlumed::plumed_interface()
  // printf("MY PROC IS %d SIZE IS %d\n",me,nprocs  );
 
   //Enforce xlo < x <xhi
-  domain->pbc();
+  //domain->pbc();
 
   // alias the atoms
 
