@@ -124,7 +124,7 @@ real PREFIX eds_engine(real* ss0, real* force,
 
   //apply forces for this setp and calculate energies
   for(i = 0; i < eds->cv_number; i++) {
-    force[eds->cv_map[i]] -= eds->current_coupling[i] / eds->centers[i] * ss0[eds->cv_map[i]];
+    force[eds->cv_map[i]] -= eds->current_coupling[i] / eds->centers[i];
     bias_energy += eds->current_coupling[i] / eds->centers[i] * (ss0[eds->cv_map[i]] - eds->centers[i]);
 
     //are we updating the bias?
