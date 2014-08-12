@@ -112,6 +112,7 @@ void PREFIX coord_restraint_nlist(int i_c, struct mtd_data_s *mtd_data)
   real num, iden, mod_rij, rdist, func, dfunc, rNdist, rMdist;
   real ncoord, r_0 = colvar.r_0[i_c], d_0 = colvar.d_0[i_c];
   real threshold;
+  real moment;
 
   threshold=pow(0.00001,1./(nn-mm));
 
@@ -132,13 +133,15 @@ void PREFIX coord_restraint_nlist(int i_c, struct mtd_data_s *mtd_data)
         mod_rij  = sqrt(rij[0]*rij[0]+rij[1]*rij[1]+rij[2]*rij[2]);
       };
       rdist = (mod_rij-d_0)/r_0;
-      /* analitic limit of the switching function */
+      moment = pow(mod_rij, colvar.moment[i_c]);
+      /* analytic limit of the switching function */
       if(rdist<=0.){
-       ncoord+=1.;
-       dfunc=0.;
+	ncoord+=moment;
+	dfunc=colvar.moment[i_c] * moment / (mod_rij * mod_rij);
       }else if(rdist>0.999999 && rdist<1.000001){
-       ncoord+=nn/mm;
-       dfunc=0.5*nn*(nn-mm)/mm;
+	func = moment * nn / mm;
+	ncoord+= func;
+	dfunc= colvar.moment[i_c] * moment * func / (mod_rij * mod_rij) + moment * (0.5*nn*(nn-mm)/mm);
       }else if(rdist>threshold){
        dfunc=0.;
       }else{
@@ -146,9 +149,10 @@ void PREFIX coord_restraint_nlist(int i_c, struct mtd_data_s *mtd_data)
         rMdist = pow(rdist, mm-1);
         num = 1.-rNdist*rdist;
         iden = 1./(1.-rMdist*rdist);
-        func = num*iden;
+        func = moment * num*iden;
         ncoord += func;
-        dfunc = ((-nn*rNdist*iden)+(func*(iden*mm)*rMdist))/(mod_rij*colvar.r_0[i_c]);
+        dfunc = ((-nn*rNdist*iden)+(func*(iden*mm)*rMdist))/(mod_rij*colvar.r_0[i_c]);	
+	dfunc = colvar.moment[i_c] * moment * func / (mod_rij * mod_rij) + moment * dfunc;
       }
       for(ix=0;ix<3;ix++) {
         colvar.myder[i_c][i][ix] += +dfunc*rij[ix];
@@ -168,6 +172,7 @@ void PREFIX coord_restraint_no_nlist(int i_c, struct mtd_data_s *mtd_data)
   real num, iden, mod_rij, rdist, func, dfunc, rNdist, rMdist;
   real ncoord, r_0 = colvar.r_0[i_c], d_0 = colvar.d_0[i_c];
   real threshold;
+  real moment;
 
   threshold=pow(0.00001,1./(nn-mm));
 
@@ -188,13 +193,15 @@ void PREFIX coord_restraint_no_nlist(int i_c, struct mtd_data_s *mtd_data)
         mod_rij  = sqrt(rij[0]*rij[0]+rij[1]*rij[1]+rij[2]*rij[2]);
       };
       rdist = (mod_rij-d_0)/r_0;
+      moment = pow(mod_rij, colvar.moment[i_c]);
       /* analitic limit of the switching function */
       if(rdist<=0.){
-       ncoord+=1.;
-       dfunc=0.;
+       ncoord+=moment;
+       dfunc=colvar.moment[i_c] * moment / (mod_rij * mod_rij);
       }else if(rdist>0.999999 && rdist<1.000001){
-       ncoord+=nn/mm;
-       dfunc=0.5*nn*(nn-mm)/mm;
+	func = moment * nn / mm;
+	ncoord+= func;
+	dfunc= colvar.moment[i_c] * moment * func / (mod_rij * mod_rij) + moment * (0.5*nn*(nn-mm)/mm);
       }else if(rdist>threshold){
        dfunc=0.;
       }else{
@@ -202,9 +209,10 @@ void PREFIX coord_restraint_no_nlist(int i_c, struct mtd_data_s *mtd_data)
         rMdist = pow(rdist, mm-1);
         num = 1.-rNdist*rdist;
         iden = 1./(1.-rMdist*rdist);
-        func = num*iden;
+        func = moment * num*iden;
         ncoord += func;
-        dfunc = ((-nn*rNdist*iden)+(func*(iden*mm)*rMdist))/(mod_rij*colvar.r_0[i_c]);
+        dfunc = ((-nn*rNdist*iden)+(func*(iden*mm)*rMdist))/(mod_rij*colvar.r_0[i_c]);	
+	dfunc = colvar.moment[i_c] * moment * func / (mod_rij * mod_rij) + moment * dfunc;
       }
       for(ix=0;ix<3;ix++) {
         colvar.myder[i_c][i][ix] += +dfunc*rij[ix];
@@ -229,7 +237,7 @@ void PREFIX coord_restraint(int i_c, struct mtd_data_s *mtd_data)
 
 int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog)
 {
-  int i, iw, iat, j, help;
+  int i, iw, iat, j, help, moment;
   double r_0, d_0,r_cut=0.0,r_skin=0.0;
   double delta = 0.0;
   char string[400];
@@ -237,6 +245,7 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
   real threshold, value;
   help=0;
   d_0=0.;
+  moment = 0;
 
   colvar.cell_pbc[count]=1; // default is PBC
 
@@ -258,6 +267,8 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
   if(iw>=0) { sscanf(word[iw+1],"%i", &colvar.nn[count]); } else { fprintf(fplog,"|- NEEDED NN KEYWORD FOR COORD\n"); help=1;}
   iw=seek_word(word,"MM");
   if(iw>=0) { sscanf(word[iw+1],"%i", &colvar.mm[count]);} else { fprintf(fplog,"|- NEEDED MM KEYWORD FOR COORD\n"); help=1;}
+  iw=seek_word(word,"MOMENT");
+  if(iw>=0) { sscanf(word[iw+1],"%i", &moment);}
   iw=seek_word(word,"R_0");
   if(iw>=0) { sscanf(word[iw+1],"%lf", &r_0); } else { fprintf(fplog,"|- NEEDED R_0 KEYWORD FOR COORD\n"); help=1;}
   iw=seek_word(word,"D_0");
@@ -289,14 +300,16 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
   colvar.r_0[count]      = (real) r_0;
   colvar.d_0[count]      = (real) d_0;
   colvar.type_s[count]   = 3;
+  colvar.moment[count]   = moment;
 
   fprintf(fplog, "%1i-COORDINATION NUMBER OF (1st SET: %i ATOMS) WRT (2nd SET: %i ATOMS); ", count+1, colvar.list[count][0], colvar.list[count][1]);
   if(colvar.cell_pbc[count]) fprintf(fplog, " PBC ON");
   else                       fprintf(fplog, " PBC OFF");
   if (logical.do_hills) fprintf(fplog," SIGMA %f\n",colvar.delta_r[count]);
   else fprintf(fplog,"\n"); 
-  fprintf(fplog, "|--FUNCTIONAL FORM: (1-((d_ij-d_0)/r_0)^n) / (1-((d_ij-d_0)/r_0)^m) \n");
-  fprintf(fplog, "|--PARAMETERS: n= %i m= %i r_0= %f d_0= %f\n", colvar.nn[count], colvar.mm[count], colvar.r_0[count], colvar.d_0[count]);
+  fprintf(fplog, "|--FUNCTIONAL FORM: r^(moment) * (1-((d_ij-d_0)/r_0)^n) / (1-((d_ij-d_0)/r_0)^m) \n");
+  fprintf(fplog, "|--PARAMETERS: n= %i m= %i r_0= %f d_0= %f moment= %i\n", colvar.nn[count], colvar.mm[count], colvar.r_0[count], colvar.d_0[count], colvar.moment[count]);
+    
 
   threshold=pow(0.00001,1./(colvar.nn[count]-colvar.mm[count]));
   value=(1.-pow(threshold,colvar.nn[count]))/(1.-pow(threshold,colvar.mm[count]));
@@ -334,3 +347,4 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
 
   return colvar.natoms[count]; 
 }
+

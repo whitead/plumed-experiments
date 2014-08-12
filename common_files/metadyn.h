@@ -474,6 +474,7 @@ struct colvar_s
   int    doTrig  [nconst_max];                          // Used by torsion so that we can use sines and cosines of torsions GAT 
   int    nn      [nconst_max];				// used by for numerator exponent
   int    mm      [nconst_max];				// used by for denominator exponent
+  int    moment  [nconst_max];				// Coordination number moment
   real   r_0     [nconst_max];				// used by for binding distance
   real   d_0     [nconst_max];				// used by for binding distance
   real   beta    [nconst_max];				// used by mindist
