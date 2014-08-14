@@ -8,7 +8,7 @@ destination="$PWD/src"
 #plumedir='AAA'
 
 # definitions specific to this code
-CODE="lammps_27-10-2011"
+CODE="lammps_28-6-2014"
 LINKED_FILES="$plumedir/common_files/*.h $plumedir/common_files/*.c"
 WHERE_LINKS="./USER-PLUMED"
 
@@ -587,3 +587,4 @@ function to_do_after_revert () {
 NAME="$0"
 source $plumedir/patches/patch_tool.sh
 
+echo "Remember to add a -DLAMMPS_PLUMED flag to your Makefile"

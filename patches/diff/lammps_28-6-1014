@@ -1,0 +1,72 @@
+path -c -l -b -F 3 src/group.cpp.preplumed src/group.cpp Page 1
+*** src/group.cpp.preplumed	2014-06-27 18:28:02.000000000 -0500
+--- src/group.cpp	2014-08-13 19:49:29.471416060 -0500
+*************** for (int j = 0; j < 3; j++)
+*** 1680,1682 ****
+--- 1680,1722 ----
+    w[2] = inverse[2][0]*angmom[0] + inverse[2][1]*angmom[1] +
+      inverse[2][2]*angmom[2];
+  }
++ /* ----------------------------------------------------------------------
++    add flagged atoms to a new group for plumed dirty purpose 
++ ------------------------------------------------------------------------- */
++ 
++ void Group::create_plumed(char *name, int *flag)
++ {
++   int i;
++ 
++   // find group in existing list
++   // add a new group if igroup = -1
++ 
++   int igroup = find(name);
++ 
++   if (igroup == -1) {
++     //fprintf(screen,"ADDING A NEW GROUP\n");
++     if (ngroup == MAX_GROUP) error->all(FLERR,"Too many groups");
++     igroup = find_unused();
++     int n = strlen(name) + 1;
++     names[igroup] = new char[n];
++     strcpy(names[igroup],name);
++     ngroup++;
++   }
++ 
++   // add atoms to group whose flags are set
++ 
++   int *mask = atom->mask;
++   int nlocal = atom->nlocal;
++   int *tag = atom->tag;
++   int bit = bitmask[igroup];
++   int id;
++ 
++   for (i = 0; i < nlocal; i++){
++      id=tag[i];  // tag has the fortran labelling
++      //fprintf(screen,"SCANNING LOCAL IND %d  TAG %d FLAG %d\n",i,id,flag[id-1]); 
++      if(flag[id-1]){
++       mask[i] |= bit;
++      // fprintf(screen,"GOT IT: TAG   %d  FLAG %d \n",id,flag[id-1]); 
++      }
++    }
++ }
+EOF_EOF
+patch -c -l -b -F 3 src/group.h.preplumed src/group.h Page 1
+*** src/group.h.preplumed	2014-06-27 18:28:02.000000000 -0500
+--- src/group.h	2014-08-13 19:49:29.475416060 -0500
+*************** Copyright (2003) Sandia Corporation.  Un
+*** 31,37 ****
+    Group(class LAMMPS *);
+    ~Group();
+    void assign(int, char **);         // assign atoms to a group
+!   void create(char *, int *);        // add flagged atoms to a group
+    int find(const char *);            // lookup name in list of groups
+    void write_restart(FILE *);
+    void read_restart(FILE *);
+--- 31,38 ----
+    Group(class LAMMPS *);
+    ~Group();
+    void assign(int, char **);         // assign atoms to a group
+!   void create(char *, int *);
+!   void create_plumed(char *, int *);        // add flagged atoms to a group
+    int find(const char *);            // lookup name in list of groups
+    void write_restart(FILE *);
+    void read_restart(FILE *);
+EOF_EOF
