@@ -1,4 +1,4 @@
-path -c -l -b -F 3 src/group.cpp.preplumed src/group.cpp Page 1
+patch -c -l -b -F 3 --suffix=.preplumed "./group.cpp" << \EOF_EOF
 *** src/group.cpp.preplumed	2014-06-27 18:28:02.000000000 -0500
 --- src/group.cpp	2014-08-13 19:49:29.471416060 -0500
 *************** for (int j = 0; j < 3; j++)
@@ -48,7 +48,7 @@ path -c -l -b -F 3 src/group.cpp.preplumed src/group.cpp Page 1
 +    }
 + }
 EOF_EOF
-patch -c -l -b -F 3 src/group.h.preplumed src/group.h Page 1
+patch -c -l -b -F 3 --suffix=.preplumed "./group.h" << \EOF_EOF
 *** src/group.h.preplumed	2014-06-27 18:28:02.000000000 -0500
 --- src/group.h	2014-08-13 19:49:29.475416060 -0500
 *************** Copyright (2003) Sandia Corporation.  Un
