@@ -1165,7 +1165,7 @@ extern "C" void meta_force_calculation_(real *pos, real *force, int *nsp, int *n
 extern "C" void pbc_cpmd_plumed_( real*, real*, real* );
 #endif
 // this is the c++ class containing all plumed (like this there is no name conflict between things in cpmd and things in plumed)
-class Plumed{
+ class Plumed{
  public:
  Plumed(); //constructor
  void mtd_data_init( int atoms, int nsp, int *na, int nsx, int nax, real ddt, int now, real *mass, char *metainp);
@@ -1177,12 +1177,17 @@ class Plumed{
 // these two are the wrapper rotines, needed to call c++ code from fortran
 extern "C" void init_metadyn(int *atoms, int *nsp, int *na, real *ddt, int *now, real *mass, char *metainp);
 extern "C" void meta_force_calculation(real *pos, real *force, int *atoms);
-extern "C" void __cell_types_MOD_pbc_cp2k_plumed( real*, real*, real* );
 #else
 // these two are the wrapper rotines, needed to call c++ code from fortran
 extern "C" void init_metadyn_(int *atoms, int *nsp, int *na, real *ddt, int *now, real *mass, char *metainp);
 extern "C" void meta_force_calculation_(real *pos, real *force, int *atoms);
-extern "C" void __cell_types_MOD_pbc_cp2k_plumed( real*, real*, real* );
+#ifdef __INTEL_COMPILER
+//different name mangling
+extern "C" void cell_types_mp_pbc_cp2k_plumed_( real*, real*, real* );
+#else
+//GCC like
+extern "C" void __cell_types_MOD_pbc_cp2k_plumed_( real*, real*, real* );
+#endif //__INTEL_COMPILER
 #endif
 // this is the c++ class containing all plumed (like this there is no name conflict between things in cp2k and things in plumed??)
 class Plumed{
@@ -1315,8 +1320,8 @@ void eds_init(int cv_number, real update_period,
  // JFD>
  // Added for transition tempering
  double transition_bias_ND();
- int  read_density       (char **word,int count,t_plumed_input *input,           FILE *fplog);
- int  read_densityswitch (char **word,int count,t_plumed_input *input,           FILE *fplog);
+ // int  read_density       (char **word,int count,t_plumed_input *input,           FILE *fplog);
+ // int  read_densityswitch (char **word,int count,t_plumed_input *input,           FILE *fplog);
  #define TTMETAD_LATTICE_PBC 0
  #define TTMETAD_LATTICE_RBC 1
 
@@ -1370,8 +1375,8 @@ void eds_init(int cv_number, real update_period,
  void insert_indexed_value(indexed_value_max_heap *ival_mheap, size_t index, double value);
  double get_max(indexed_value_max_heap *ival_mheap);
  size_t get_max_index(indexed_value_max_heap *ival_mheap);
- void density_restraint       (int i_c, struct mtd_data_s *mtd_data);
- void densityswitch_restraint (int i_c, struct mtd_data_s *mtd_data);
+ // void density_restraint       (int i_c, struct mtd_data_s *mtd_data);
+ // void densityswitch_restraint (int i_c, struct mtd_data_s *mtd_data);
  void delete_max(indexed_value_max_heap *ival_mheap);
  void swap_heap_entries(indexed_value_max_heap *ival_mheap, size_t index_one, size_t index_two);
 
@@ -1722,6 +1727,7 @@ inline real min(real a, real b) { if(a < b){ return a;}else{b;}; };
 // we need this because Plumed is a class
 };
 #elif PLUMED_CP2K
+};
 // this makes the Plumed object global
 extern Plumed Plumed_simulation;
 #endif

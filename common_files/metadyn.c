@@ -1485,8 +1485,14 @@ for(i=0;i<3;i++){
 #if defined (PLUMED_CP2K_NOUNDERSCORE)
   __cell_types_MOD_pbc_cp2k_plumed(&rij[0],&rij[1],&rij[2]);
 #else
-  __cell_types_MOD_pbc_cp2k_plumed(&rij[0],&rij[1],&rij[2]);
-#endif
+#ifdef __INTEL_COMPILER
+  //different name mangling
+  cell_types_mp_pbc_cp2k_plumed_(&rij[0],&rij[1],&rij[2]);
+#else
+  //GCC like
+  __cell_types_MOD_pbc_cp2k_plumed_(&rij[0],&rij[1],&rij[2]);
+#endif //__INTEL_COMPILER
+#endif//NO_UNDERSCORE
   *mod_rij=sqrt(pow(rij[0],2)+pow(rij[1],2)+pow(rij[2],2));
 #elif defined (ACEMD) || defined (DRIVER) || defined (AMBER) || defined (STANDALONE) || defined (PLUMED_QESPRESSO) 
   int i;
