@@ -285,10 +285,10 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
   if(hills.max_height>0.0) hills.wwr=hills.rate*(colvar.it-last_hill_at_this_step)*mtd_data->dt;
 
   //store and check supremum if we're doing global tempering
-  if(logical.global_tempering) {
+  if(logical.global_tempering == 1) {
     hills.sup_ww = fmax(hills.sup_ww, hills.Vhills);
     if(hills.sup_ww > hills.wwr * hills.global_tempering_ratio) {
-      logical.global_tempering = 0;
+      logical.global_tempering = 2;
       printf("----------ENABLING TEMPERING--------------\n");
     }
   }
@@ -303,6 +303,9 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
      the stored Vhills to decide the hills height*/
     if(!logical.global_tempering)
       this_ww *= exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp));
+    else if(logical.global_tempering == 2)
+      this_ww *= exp(-(hills.sup_ww - hills.wwr * hills.global_tempering_ratio)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp));
+
   }
   // JFD>
   if(logical.transition_tempering) {
