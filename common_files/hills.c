@@ -344,7 +344,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
 	     hills.wwr / exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));
 #endif
   }
-  if(logical.mcgdp_hills && !logical.interval_correct_bias) {
+  if(logical.mcgdp_hills) {
     //check if the colvar is within the boundaries
     for (icv=0; icv<ncv; icv++) if(colvar.on[icv]) {
 	if (hills.mcgdp_reshape_flag[icv] == 1) {
@@ -928,23 +928,6 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
     for(j = 0; j < ncv; j++) grid->oldelta[j] = delta[grid->index[j]];
   }
 
-  //ADW>
-  //Now we check if we're outside the interval. If we are, do nothing. 
-  //If we are in the interval, we add compensating hills inside of it.
-  for(j = 0; j < ncv; j++)
-    if(logical.interval[grid->index[j]])
-      if((ss[grid->index[j]] <= cvint.lower_limit[j] || ss[grid->index[j]] >= cvint.upper_limit[j])) 
-	interval_flag |= 1;
-
-  //add the hills evenly now if correction is on
-  if(interval_flag) {
-    if(logical.interval_correct_bias)
-      grid_addhills_interval_evenly(grid, ww, ss, delta, rank, npe);
-    return;
-  }
-
-  //ADW<
-
   // allocate temp array
   xx = float_1d_array_alloc(ncv);
   dp = float_1d_array_alloc(ncv);
@@ -1109,96 +1092,6 @@ void PREFIX grid_addhills(struct grid_s *grid, real ww, real* ss, real* delta,in
   free_1dr_array_alloc(pot_for_para);
   free_1di_array_alloc(index_1d_para);
 }
-
-//ADW>
-//-------------------------------------------------------------------------------------------
-// add a hills on the grid to the grid evenly. Only changes potential
-void PREFIX grid_addhills_interval_evenly(struct grid_s *grid, real ww, real* ss, real* delta,int rank,int npe)
-{
-
-  int   i, j, ncv, flag;
-  real *xx, expo;
-  int  *index_nd, index_1d;
-  int *index_1d_para;
-  real *pot_for_para;
-
-  ncv  = grid->ncv;
-  
-  //now we add a hill the same size as if the hill had been
-  //added evenly across the interval region
-  real int_vol = 1;
-  real tot_vol = 1;
-  for(j = 0; j < ncv; j++) {
-    if(logical.interval[j])
-      int_vol *= (cvint.upper_limit[j] - cvint.lower_limit[j]) / delta[j];
-    else
-      int_vol *= (grid->max[j] - grid->min[j]) / delta[j];
-    tot_vol *= (grid->max[j] - grid->min[j]) / delta[j];
-  }  
-  expo     = 2 * sqrt(M_PI) * ww / (tot_vol - int_vol);
-
-  // allocate temp array
-  xx = float_1d_array_alloc(ncv);
-  index_nd = int_1d_array_alloc(ncv); 
-
-
-  // temporary array for parallel computation
-  index_1d_para = int_1d_array_alloc(grid->size);
-  pot_for_para = float_1d_array_alloc(grid->size * (1 + ncv));
-  for(i = 0; i < grid->size; i++) index_1d_para[i] = 0;
-  for(i = 0; i < grid->size * (1 + ncv); i++) pot_for_para[i] = 0.0;
-
-  for(i = rank; i < grid->size; i += npe) {
-
-    index_1d_para[i] = -1; // it means "no force on this point"
-
-    flag = 0;
-    for(j = 0; j < ncv; j++) {
-      xx[j] = ss[grid->index[j]] - grid->lbox[j] + grid->dx[j] * grid->one2multi_full[i][j];
-      if(grid->period[j]) xx[j] -= grid->lbox[j] * int_floor((xx[j] - grid->min[j])/grid->lbox[j]);
-      index_nd[j] = floor((xx[j]-grid->min[j])/grid->dx[j]);
-      //with single precision, it is possible that xx - min = 2 * min if xx[j] is very close to min
-      if(index_nd[j]<0 || index_nd[j] >=grid->bin[j])  flag=1;
-    }
-    if(flag == 1) continue; // out of grid 
-
-    // from multidimensional index to mono
-    index_1d = grid_multi2one(grid, index_nd);
-
-    //check if this point is in the interval
-    flag = 0;
-    for(j = 0; j < ncv; j++) {
-      if(logical.interval[j]) {
-	xx[j] = grid->min[j] + grid->dx[j] * index_nd[j];
-	if((xx[j] <= cvint.lower_limit[j] || xx[j] >= cvint.upper_limit[j])) 
-	  flag |= 1;
-      }
-    }
-
-    // Add grid bias potential value    
-    if(flag)
-      pot_for_para[i * (ncv + 1)] = expo;
-    index_1d_para[i]=index_1d;
-  }
-
-  if(npe>1){ 
-    plumed_sum (&mtd_data,grid->size*(ncv+1),pot_for_para);
-    plumed_sumi(&mtd_data,grid->size,index_1d_para);
-  }
-
-  for(i=0;i<grid->size;i++) {
-    if(index_1d_para[i]<0) continue;
-    grid->pot[index_1d_para[i]]+=pot_for_para[i*(ncv+1)];
-  }
-
-  // deallocation
-  free_1dr_array_alloc(xx);
-  free_1di_array_alloc(index_nd);
-  free_1dr_array_alloc(pot_for_para);
-  free_1di_array_alloc(index_1d_para);
-  
-}
-//ADW<
 
 //-------------------------------------------------------------------------------------------
 // from multidimensional index to mono dimensional
