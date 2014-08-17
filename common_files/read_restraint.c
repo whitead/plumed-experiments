@@ -485,7 +485,7 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	} else if(!strcmp(word[iw],"GLOBAL_TEMPERING")){
 	// ADW>		  
 	  logical.global_tempering = 1;
-          iw++; sscanf(word[iw], "%lf", &uno); hills.global_tempering_ratio = (real) uno;
+          iw++; sscanf(word[iw], "%lf", &uno); hills.global_tempering_threshold = (real) uno;
 	//ADW<
         } else {
           plumed_error("Unknown flag for keyword WELLTEMPERED");

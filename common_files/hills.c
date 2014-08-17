@@ -285,9 +285,10 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
   if(hills.max_height>0.0) hills.wwr=hills.rate*(colvar.it-last_hill_at_this_step)*mtd_data->dt;
 
   //store and check supremum if we're doing global tempering
-  if(logical.global_tempering == 1) {
+  if(logical.global_tempering) {
     hills.sup_ww = fmax(hills.sup_ww, hills.Vhills);
-    if(hills.sup_ww > hills.wwr * hills.global_tempering_ratio) {
+    //    if(logical.global_tempering == 1 && hills.sup_ww > hills.global_tempering_threshold) {
+    if(logical.global_tempering == 1 && hills.sum_ww / hills.vol > hills.global_tempering_threshold) {
       logical.global_tempering = 2;
       printf("----------ENABLING TEMPERING--------------\n");
     }
@@ -304,7 +305,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     if(!logical.global_tempering)
       this_ww *= exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp));
     else if(logical.global_tempering == 2)
-      this_ww *= exp(-(hills.sup_ww - hills.wwr * hills.global_tempering_ratio)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp));
+      this_ww *= exp(-(hills.sum_ww / hills.vol - hills.global_tempering_threshold)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp));
 
   }
   // JFD>
@@ -358,6 +359,12 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
       }
   }
 
+  if(logical.global_tempering) {
+    hills.sum_ww += this_ww  * sqrt(2 * M_PI); // add extra 2 * sqrt(pi) because the 
+    //gaussins are unnormalized. The variance correction is included in the volume term
+  }
+
+  //<ADW
   
   for(icv=0;icv<ncv;icv++) this_ss[icv]    = colvar.ss0[icv];    	// new hill center
   for(icv=0;icv<ncv;icv++) this_delta[icv] = colvar.delta_r[icv];       // new hill width

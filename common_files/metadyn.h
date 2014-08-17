@@ -537,7 +537,9 @@ struct hills_s
   real   Vhills;					// Hills potential
   //ADW>
   real   sup_ww; //highest hill added
-  real   global_tempering_ratio;
+  real   sum_ww; //total bias added
+  real   vol; //The volume of the interval over which hills are being added
+  real   global_tempering_threshold;
   //ADW<
   // JFD>
   // Extra information for depositing McGovern-de Pablo hills
