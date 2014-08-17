@@ -535,9 +535,7 @@ struct hills_s
   int      idwalker;
   real   Vhills;					// Hills potential
   //ADW>
-  real   sup_ww; //highest hill added
-  real   sum_ww; //total bias added
-  real   vol; //The volume of the interval over which hills are being added
+  real   sup_ww; //highest hill added, for global tempering
   real   global_tempering_threshold;
   //ADW<
   // JFD>

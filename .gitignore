@@ -16,6 +16,8 @@
 *.exe
 *.out
 *.app
+*.x
+*.pyc
 
 #Emacs
 *~

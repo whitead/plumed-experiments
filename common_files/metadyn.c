@@ -1269,16 +1269,6 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
     
     grid_read_fromfile(&target_grid, 0);
   }
-  if(logical.global_tempering) {
-    //calculate volume over which hills are being applied
-    hills.vol = 1.;
-    for(j = 0; j < colvar.nconst; j++) {
-      if(logical.interval[j])
-	hills.vol *= (cvint.upper_limit[j] - cvint.lower_limit[j]) / colvar.delta_r[j];
-      else if(logical.do_grid)
-	hills.vol *= (bias_grid.max[j] - bias_grid.min[j]) / colvar.delta_r[j];
-    }  
-  }
   // <ADW
   if(logical.do_hills){
     hills.ntothills = STACKDIM ;// dimesion of hills vector
