@@ -318,7 +318,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     // p_c = exp(-F_g / kT) => F_g / kT = ln[P(target)] => F_g = kT ln[P(target)]
     //no units necessary, only in post-processing
     this_ww /= exp(grid_getstuff(&target_grid, colvar.ss0,  NULL));
-    if(logical.welltemp && !(hills.sup_ww > 0))//to prevent very large hills. The second check is to see if global tempering was on
+    if(logical.welltemp && !logical.global_tempering)//to prevent very large hills. The second check is to see if global tempering was on
       this_ww = fmin(hills.wwr, this_ww);
 #ifdef OUTPUT_TARGET_INFO   
     printf("target value is %f\n", 
@@ -328,15 +328,26 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
 	   grid_getstuff(&target_grid, colvar.ss0,  NULL), 
 	   exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));
 
-    if(logical.welltemp)
+    if(logical.global_tempering == 1)
+      printf("Hill = %f * %f =  %f)\n",
+	     hills.wwr,
+	     1. / exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
+	     hills.wwr / exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));
+    else if(logical.global_tempering == 2)
+      printf("Hill = %f * %f * %f =  %f\n",
+	     hills.wwr,
+	     exp(-(hills.sum_ww / hills.vol - hills.global_tempering_threshold)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)), 
+	     1. / exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
+	     hills.wwr * exp(-(hills.sum_ww / hills.vol - hills.global_tempering_threshold)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)) / 
+	     exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));
+    else if(logical.welltemp)
       printf("Hill = fmin(%f, %f * %f * %f =  %f)\n",
 	     this_ww, 
 	     hills.wwr,
 	     exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)), 
 	     1. / exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
 	     hills.wwr * exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)) / 
-	         exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));
-
+	     exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));    
     else
       printf("Hill = %f * %f =  %f)\n",
 	     hills.wwr,
