@@ -333,7 +333,7 @@ class Grid(object):
         indices = [i if i < nb else nb - 1 for i,nb in zip(indices,self.nbins)]
         output.write('{: 10.8f}\n'.format(self.pot[tuple(indices)]))        
     
-    def plot_2d(self, filename, cmap='jet', resolution=None, axis=(1,0)):
+    def plot_2d(self, filename, cmap='jet', resolution=None, axis=(1,0), hold=False):
         assert self.dims >= 2
         import matplotlib.pyplot as plt
         old_bins = self.nbins
@@ -346,15 +346,18 @@ class Grid(object):
         if(resolution is not None):
             self.set_bin_number([resolution if x in axis else self.nbins[x] for x in range(self.dims)])
 
-        plt.figure()
+        if(not hold):
+            plt.figure()
         plt.imshow(np.swapaxes(data, 0, axis[0]), interpolation='nearest', cmap=cmap, extent=[self.min[axis[0]], self.max[axis[0]],self.max[axis[1]],self.min[axis[1]]])
         if(resolution is not None):
             self.set_bin_number(old_bins)
         plt.colorbar()
-        plt.savefig(filename)
+        if(not hold):
+            plt.savefig(filename)
 
     def bias_to_pmf(self, target_filename, bias_factor, boltzmann_factor):
-        self.pot *= (bias_factor) / (bias_factor - 1)
+        if(bias_factor is not None):
+            self.pot *= (bias_factor) / (bias_factor - 1)
         if(target_filename is not None):
             t = Grid()
             t.read_plumed_grid(target_filename)
