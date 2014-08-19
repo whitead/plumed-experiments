@@ -164,14 +164,14 @@ void PREFIX coord_restraint_nlist(int i_c, struct mtd_data_s *mtd_data)
 	dfunc = colvar.moment[i_c] * moment * func / (mod_rij * mod_rij) + moment * dfunc;	
       }
       for(ix=0;ix<3;ix++) {
-        colvar.myder[i_c][i][ix] += +dfunc*rij[ix];
+        colvar.myder[i_c][i][ix] += colvar.cn_scale[i_c] * dfunc*rij[ix];
 //        colvar.myder[i_c][j][ix] += -dfunc*rij[ix];
-        colvar.myder[i_c][(nlist[sn]).ni[i][j]][ix] += -dfunc*rij[ix];
+        colvar.myder[i_c][(nlist[sn]).ni[i][j]][ix] += -colvar.cn_scale[i_c] * dfunc*rij[ix];
       }
     }
   }
 
-  colvar.ss0[i_c] = ncoord;
+  colvar.ss0[i_c] = colvar.cn_scale[i_c] * ncoord;
 
 }
 void PREFIX coord_restraint_no_nlist(int i_c, struct mtd_data_s *mtd_data)
@@ -226,12 +226,12 @@ void PREFIX coord_restraint_no_nlist(int i_c, struct mtd_data_s *mtd_data)
 	dfunc = colvar.moment[i_c] * moment * func / (mod_rij * mod_rij) + moment * dfunc;	
        }
       for(ix=0;ix<3;ix++) {
-        colvar.myder[i_c][i][ix] += +dfunc*rij[ix];
-        colvar.myder[i_c][j][ix] += -dfunc*rij[ix];
+        colvar.myder[i_c][i][ix] += colvar.cn_scale[i_c] * dfunc*rij[ix];
+        colvar.myder[i_c][j][ix] += -colvar.cn_scale[i_c] * dfunc*rij[ix];
       }
     }
   }
-  colvar.ss0[i_c] = ncoord;
+  colvar.ss0[i_c] = colvar.cn_scale[i_c] * ncoord;
 
 }
 
@@ -260,6 +260,8 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
 
   colvar.cell_pbc[count]=1; // default is PBC
   colvar.moment[count]=0; //default
+  colvar.b_scale_cn[count] = 0; //default, do not scale
+  colvar.cn_scale[count] = 1; //default, do not scale
   colvar.groups[count] = -1;
 
   iw = seek_word(word,"LIST");
@@ -284,6 +286,8 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
   if(iw>=0) { sscanf(word[iw+1],"%i", &moment);}
   iw=seek_word(word,"SHARE_NLIST");
   if(iw>=0) { sscanf(word[iw+1],"%i", &colvar.groups[count]);}
+  iw=seek_word(word,"SCALE");
+  if(iw>=0) { colvar.b_scale_cn[count] = 1;}
   iw=seek_word(word,"R_0");
   if(iw>=0) { sscanf(word[iw+1],"%lf", &r_0); } else { fprintf(fplog,"|- NEEDED R_0 KEYWORD FOR COORD\n"); help=1;}
   iw=seek_word(word,"D_0");
@@ -357,6 +361,11 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
     logical.nlist[count] = 1;
   } else
   {fprintf(fplog,"|--VERLET LIST NOT ACTIVE\n");}
+  
+  if(colvar.b_scale_cn[count]) {
+    colvar.cn_scale[count] = 1. / colvar.natoms[count];
+    fprintf(fplog, "|--WILL SCALE COORDINATION NUMBER BY ATOM NUMBER--|\n" );
+  }
 
   iat=0;
   fprintf(fplog,"|- 1st SET MEMBERS: ");
