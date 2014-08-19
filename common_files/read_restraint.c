@@ -586,7 +586,12 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	//we assume it's a stochastic sample setting first, then
 	//check if it's actually an integer
 	if(sscanf(word[iw], "%lf", &uno)) {
-	  if(ceil(uno) == uno) {
+	  if(uno == 1 && word[iw][0] != '1'){ //special case due to ambiguity between sampling 1.0 and cv 1
+	    colvar.stoch_sample = uno;	     
+	    fprintf(mtd_data->fplog,"Will sample independent CVs with probability %lf \n", colvar.stoch_sample);
+	    break;
+	  }
+	  else if(ceil(uno) == uno) {
 	    icv = (int) uno;
 	    colvar.b_treat_independent[icv-1] = 1;
 	    fprintf(mtd_data->fplog,"%d ", icv);

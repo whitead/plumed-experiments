@@ -317,7 +317,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     // p_c = exp(-F_g / kT) => F_g / kT = ln[P(target)] => F_g = kT ln[P(target)]
     //no units necessary, only in post-processing
     this_ww /= exp(grid_getstuff(&target_grid, colvar.ss0,  NULL));
-    if(logical.welltemp && !logical.global_tempering)//to prevent very large hills. 
+    if(logical.welltemp && !logical.global_tempering)//to prevent very large hills. The second check is to see if global tempering was on
       this_ww = fmin(hills.wwr, this_ww);
 #ifdef OUTPUT_TARGET_INFO   
     printf("target value is %f\n", 
@@ -326,6 +326,10 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     printf("target scale is exp(%f) = %f\n", 
 	   grid_getstuff(&target_grid, colvar.ss0,  NULL), 
 	   exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));
+<<<<<<< HEAD
+=======
+
+>>>>>>> f27fed59e648131effda8da8666892cebfacca9b
     if(logical.global_tempering == 1)
       printf("Hill = %f * %f =  %f)\n",
 	     hills.wwr,
@@ -334,9 +338,15 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     else if(logical.global_tempering == 2)
       printf("Hill = %f * %f * %f =  %f\n",
 	     hills.wwr,
+<<<<<<< HEAD
 	     exp(-(hills.sup_ww - hills.global_tempering_threshold)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)), 
 	     1. / exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
 	     hills.wwr * exp(-(hills.sup_ww - hills.global_tempering_threshold)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)) / 
+=======
+	     exp(-(hills.sum_ww / hills.vol - hills.global_tempering_threshold)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)), 
+	     1. / exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
+	     hills.wwr * exp(-(hills.sum_ww / hills.vol - hills.global_tempering_threshold)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)) / 
+>>>>>>> f27fed59e648131effda8da8666892cebfacca9b
 	     exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));
     else if(logical.welltemp)
       printf("Hill = fmin(%f, %f * %f * %f =  %f)\n",
@@ -345,8 +355,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
 	     exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)), 
 	     1. / exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
 	     hills.wwr * exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)) / 
-	         exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));
-
+	     exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));    
     else
       printf("Hill = %f * %f =  %f)\n",
 	     hills.wwr,
