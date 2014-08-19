@@ -287,7 +287,8 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
   //store and check supremum if we're doing global tempering
   if(logical.global_tempering) {
     hills.sup_ww = fmax(hills.sup_ww, hills.Vhills);
-    if(logical.global_tempering == 1 && hills.sup_ww > hills.global_tempering_threshold) {
+    //    if(logical.global_tempering == 1 && hills.sup_ww > hills.global_tempering_threshold) {
+    if(logical.global_tempering == 1 && hills.sum_ww / hills.vol > hills.global_tempering_threshold) {
       logical.global_tempering = 2;
       printf("----------ENABLING TEMPERING--------------\n");
     }
@@ -304,7 +305,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     if(!logical.global_tempering)
       this_ww *= exp(-hills.Vhills/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp));
     else if(logical.global_tempering == 2)
-      this_ww *= exp(-(hills.sup_ww - hills.global_tempering_threshold)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp));
+      this_ww *= exp(-(hills.sum_ww / hills.vol - hills.global_tempering_threshold)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp));
 
   }
   // JFD>
@@ -326,10 +327,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     printf("target scale is exp(%f) = %f\n", 
 	   grid_getstuff(&target_grid, colvar.ss0,  NULL), 
 	   exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));
-<<<<<<< HEAD
-=======
 
->>>>>>> f27fed59e648131effda8da8666892cebfacca9b
     if(logical.global_tempering == 1)
       printf("Hill = %f * %f =  %f)\n",
 	     hills.wwr,
@@ -338,15 +336,9 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
     else if(logical.global_tempering == 2)
       printf("Hill = %f * %f * %f =  %f\n",
 	     hills.wwr,
-<<<<<<< HEAD
-	     exp(-(hills.sup_ww - hills.global_tempering_threshold)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)), 
-	     1. / exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
-	     hills.wwr * exp(-(hills.sup_ww - hills.global_tempering_threshold)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)) / 
-=======
 	     exp(-(hills.sum_ww / hills.vol - hills.global_tempering_threshold)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)), 
 	     1. / exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)), 
 	     hills.wwr * exp(-(hills.sum_ww / hills.vol - hills.global_tempering_threshold)/(mtd_data->boltz*(colvar.wfactor-1.0)*colvar.simtemp)) / 
->>>>>>> f27fed59e648131effda8da8666892cebfacca9b
 	     exp(grid_getstuff(&target_grid, colvar.ss0,  NULL)));
     else if(logical.welltemp)
       printf("Hill = fmin(%f, %f * %f * %f =  %f)\n",
@@ -377,6 +369,12 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
 	}
       }
   }
+
+  if(logical.global_tempering) {
+    hills.sum_ww += this_ww  * sqrt(2 * M_PI); // add extra 2 * sqrt(pi) because the 
+    //gaussins are unnormalized. The variance correction is included in the volume term
+  }
+
   //<ADW
   
   for(icv=0;icv<ncv;icv++) this_ss[icv]    = colvar.ss0[icv];    	// new hill center
