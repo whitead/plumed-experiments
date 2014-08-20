@@ -374,6 +374,7 @@ struct logical_s
   //ADW>
   int    target_distribution; //do target distribution metadynamisc
   int    global_tempering;//only turn on tempering when a certin max hill height has been met
+  int    eds; //do experiment directed simulation
   // <ADW
   int    lreflect[nconst_max];
   int    ureflect[nconst_max];
@@ -400,6 +401,30 @@ struct logical_s
   int    do_pca;
   int    nlist[nconst_max];
 };
+
+//ADW>
+//experiment directed simulation structure
+typedef struct s_t_eds {
+  real*  centers; //colvar centers
+  real*  means; //colvar means
+  real*  ssd; //sum of squared deviation
+  real*  max_coupling_range; //max coupling range
+  real*  max_coupling_rate; //max coupling rate
+  real*  set_coupling; //where we want the coupling to be
+  real*  current_coupling; //where the coupling is
+  real*  coupling_rate; //how quickly to change the coupling
+  real*  coupling_accum; //accumation in coupling
+  int*   cv_map;//map from CVs we're biasing and those we're not
+  FILE*  output_file;//Output 
+  real   simtemp;// simulation temperature
+  int    seed;//random number seed
+  int    cv_number;//number of CV's we're biasing
+  int    update_period; //the stride/period, how often to update
+  int    update_calls; //how often we've been called
+  int    b_equilibration; //are we in equilibration phase?
+  int    b_hard_coupling_range; //allow/disallow flexible coupling range
+} t_eds;
+//<ADW
 
 struct adapt
 {
@@ -449,6 +474,7 @@ struct colvar_s
   int    doTrig  [nconst_max];                          // Used by torsion so that we can use sines and cosines of torsions GAT 
   int    nn      [nconst_max];				// used by for numerator exponent
   int    mm      [nconst_max];				// used by for denominator exponent
+  int    moment  [nconst_max];				// Coordination number moment
   real   r_0     [nconst_max];				// used by for binding distance
   real   d_0     [nconst_max];				// used by for binding distance
   real   beta    [nconst_max];				// used by mindist
@@ -468,8 +494,10 @@ struct colvar_s
   real   wfactor;                       // welltemp factor = wtemp/simtemp
   //ADW>
   int    b_treat_independent  [nconst_max];          //treat the CV's as independent?
+  int   b_scale_cn [nconst_max];
+  real   cn_scale [nconst_max];
   real   stoch_sample;     //If < 1, add hills stochastically
-  int   stoch_sample_seed;     //Seed for stochastic sampling 
+  int   stoch_sample_seed;     //Seed for stochastic sampling   
   //<ADW
   // JFD>
   real   tttemp;                        // transition tempered temperature
@@ -1224,9 +1252,21 @@ extern "C" {
  real hills_engine(real*,real*);
  real hills_engine_dp(int ih,real* ss0,real* dp);
  void hills_force();
- //Sepearated zero forces from apply forces
  //ADW>
+ //Sepearated zero forces from apply forces
  void zero_forces(struct mtd_data_s *mtd_data );
+ //Experiment directed simulation methods
+void eds_init(int cv_number, real update_period, 
+		real simtemp, int seed,
+		int b_hard_coupling_range, 
+		int* cv_map,
+	      const char* filename,
+		t_eds* eds);
+ void eds_free(t_eds* eds);
+ real eds_engine(real* ss0, real* force, t_eds* eds, real boltz);
+ void eds_write(t_eds* eds, long long int step);
+ void dump_eds(t_eds* eds);
+ void dump_array(real* array, int length, FILE* file, const char* name);
  //<ADW
  void apply_forces(struct mtd_data_s *mtd_data );
  void inversion_on_boundaries(struct mtd_data_s *mtd_data,int ncv);
@@ -1620,8 +1660,12 @@ void point_to_matrix(int i,struct sz_data *my_sz);
     MYEXT struct sprint_data_s sprint_data;
 // external potential
     MYEXT struct grid_s     extpot;
+    //ADW>
 //target distribution, if being used
     MYEXT struct grid_s    target_grid;
+    //experiment directed simulation parameters
+    MYEXT t_eds eds;
+    //<ADW
 // camshift stuff
     MYEXT struct cam_shift_s cam_shift;
 // stopwhen stuff

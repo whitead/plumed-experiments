@@ -332,6 +332,7 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
       if(ntwg)  grid_write_tofile(&bias_grid);                         // write GRID on file
     }
     
+
     cvw.Vwall=soft_walls_engine(colvar.ss0,cvw.fwall);                // Wall potential
     
     Vext=ext_forces_engine(colvar.ss0,&extpot,fext);              // External potential
@@ -339,7 +340,14 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
     cvw.Vwall+=steer_engine(colvar.ss0,cvw.fwall);                // Wall potential
     
     cvw.Vwall+=abmd_engine(colvar.ss0,cvw.fwall);                // Wall potential
-    
+
+    if(logical.eds) {//experiment directed simulations
+      cvw.Vwall+=eds_engine(colvar.ss0,cvw.fwall, &eds, mtd_data->boltz);
+      //write eds
+      eds_write(&eds, mtd_data->istep);
+    }
+
+        
     if (logical.do_dafed) dafed_engine(colvar.ss0);	       // #### d-AFED
     
     cvw.Vwall+=tamd_engine(colvar.ss0,cvw.fwall);                // TAMD/DAFED temperarily added here
@@ -1413,6 +1421,8 @@ void PREFIX stopwhen_engine (){
       }
     } 
     if(stop){
+      if(logical.eds)
+	eds_free(&eds);
 #ifdef PLUMED_GROMACS45
                   gmx_set_stop_condition(1); 
 #else

@@ -56,6 +56,7 @@ void PREFIX coord_newlist(int i_c, struct mtd_data_s *mtd_data)
     firstAtom = colvar.cvatoms[i_c][i];
     for(j=colvar.list[i_c][0];j<colvar.natoms[i_c];j++) {
       secondAtom = colvar.cvatoms[i_c][j];
+      if(firstAtom == secondAtom) continue;
       if(colvar.cell_pbc[i_c]){
         minimal_image(mtd_data->pos[firstAtom], mtd_data->pos[secondAtom], &mod_rij, rij);
       } else {
@@ -105,24 +106,33 @@ void PREFIX coord_restraint_nlist(int i_c, struct mtd_data_s *mtd_data)
 
   int firstAtom, secondAtom, i, j, ix;
   int nn = colvar.nn[i_c], mm = colvar.mm[i_c];
-  if(coord_step==0) coord_newlist(i_c,mtd_data);
-  ++coord_step; coord_checklist(i_c,mtd_data); 
+
+  if(colvar.groups[i_c] == -1) { //only check if we own the list and aren't sharing
+    if(coord_step==0) coord_newlist(i_c,mtd_data);
+    ++coord_step; coord_checklist(i_c,mtd_data); 
+  }
+  
+  //this is the possibly shared neighbor list index
+  int sn = colvar.groups[i_c] == -1 ? i_c : colvar.groups[i_c];
 
   rvec rij;
   real num, iden, mod_rij, rdist, func, dfunc, rNdist, rMdist;
   real ncoord, r_0 = colvar.r_0[i_c], d_0 = colvar.d_0[i_c];
   real threshold;
+  real moment;
 
-  threshold=pow(0.00001,1./(nn-mm));
+  //if we're using neighborlists, just use the cut-off there to be consistent
+  //  threshold=pow(0.00001,1./(nn-mm));
+  threshold = ((nlist[sn]).rcut - d_0) / r_0;
 
   ncoord = 0.;                                                                    
   for(i=0;i<colvar.natoms[i_c];i++) for(ix=0;ix<3;ix++) colvar.myder[i_c][i][ix] = 0.;
 
   for(i=0;i<colvar.list[i_c][0];i++) {                                           // sum over CoordNumber(i)
     firstAtom = colvar.cvatoms[i_c][i];
-    for(j=0;j<(nlist[i_c]).nn[i];j++) {
-//      secondAtom = (nlist[i_c]).ni[i][j];
-      secondAtom = colvar.cvatoms[i_c][(nlist[i_c]).ni[i][j]];
+    for(j=0;j<(nlist[sn]).nn[i];j++) {
+//      secondAtom = (nlist[sn]).ni[i][j];
+      secondAtom = colvar.cvatoms[i_c][(nlist[sn]).ni[i][j]];
       if(colvar.cell_pbc[i_c]){
         minimal_image(mtd_data->pos[firstAtom], mtd_data->pos[secondAtom], &mod_rij, rij);
       } else {
@@ -132,13 +142,15 @@ void PREFIX coord_restraint_nlist(int i_c, struct mtd_data_s *mtd_data)
         mod_rij  = sqrt(rij[0]*rij[0]+rij[1]*rij[1]+rij[2]*rij[2]);
       };
       rdist = (mod_rij-d_0)/r_0;
-      /* analitic limit of the switching function */
+      moment = pow(mod_rij, colvar.moment[i_c]);
+      /* analytic limit of the switching function */
       if(rdist<=0.){
-       ncoord+=1.;
-       dfunc=0.;
+	ncoord+=moment;
+	dfunc=colvar.moment[i_c] * moment / (mod_rij * mod_rij);
       }else if(rdist>0.999999 && rdist<1.000001){
-       ncoord+=nn/mm;
-       dfunc=0.5*nn*(nn-mm)/mm;
+	func = nn / mm;
+	ncoord+= moment * func;
+	dfunc= colvar.moment[i_c] * moment * func / (mod_rij * mod_rij) + moment * (0.5*nn*(nn-mm)/mm) / mod_rij;
       }else if(rdist>threshold){
        dfunc=0.;
       }else{
@@ -147,17 +159,19 @@ void PREFIX coord_restraint_nlist(int i_c, struct mtd_data_s *mtd_data)
         num = 1.-rNdist*rdist;
         iden = 1./(1.-rMdist*rdist);
         func = num*iden;
-        ncoord += func;
-        dfunc = ((-nn*rNdist*iden)+(func*(iden*mm)*rMdist))/(mod_rij*colvar.r_0[i_c]);
+        ncoord += moment * func;
+        dfunc = ((-nn*rNdist*iden)+(func*(iden*mm)*rMdist))/(mod_rij*colvar.r_0[i_c]);	
+	dfunc = colvar.moment[i_c] * moment * func / (mod_rij * mod_rij) + moment * dfunc;	
       }
       for(ix=0;ix<3;ix++) {
-        colvar.myder[i_c][i][ix] += +dfunc*rij[ix];
+        colvar.myder[i_c][i][ix] += colvar.cn_scale[i_c] * dfunc*rij[ix];
 //        colvar.myder[i_c][j][ix] += -dfunc*rij[ix];
-        colvar.myder[i_c][(nlist[i_c]).ni[i][j]][ix] += -dfunc*rij[ix];
+        colvar.myder[i_c][(nlist[sn]).ni[i][j]][ix] += -colvar.cn_scale[i_c] * dfunc*rij[ix];
       }
     }
   }
-  colvar.ss0[i_c] = ncoord;
+
+  colvar.ss0[i_c] = colvar.cn_scale[i_c] * ncoord;
 
 }
 void PREFIX coord_restraint_no_nlist(int i_c, struct mtd_data_s *mtd_data)
@@ -168,6 +182,7 @@ void PREFIX coord_restraint_no_nlist(int i_c, struct mtd_data_s *mtd_data)
   real num, iden, mod_rij, rdist, func, dfunc, rNdist, rMdist;
   real ncoord, r_0 = colvar.r_0[i_c], d_0 = colvar.d_0[i_c];
   real threshold;
+  real moment;
 
   threshold=pow(0.00001,1./(nn-mm));
 
@@ -178,7 +193,8 @@ void PREFIX coord_restraint_no_nlist(int i_c, struct mtd_data_s *mtd_data)
     firstAtom = colvar.cvatoms[i_c][i];
     for(j=colvar.list[i_c][0];j<colvar.natoms[i_c];j++) {
       if(colvar.logic[i_c] == 1 && (j-colvar.list[i_c][0]) != i) continue;
-      secondAtom = colvar.cvatoms[i_c][j];
+      secondAtom = colvar.cvatoms[i_c][j];      
+      if(firstAtom == secondAtom) continue;
       if(colvar.cell_pbc[i_c]){
         minimal_image(mtd_data->pos[firstAtom], mtd_data->pos[secondAtom], &mod_rij, rij);
       } else {
@@ -188,13 +204,15 @@ void PREFIX coord_restraint_no_nlist(int i_c, struct mtd_data_s *mtd_data)
         mod_rij  = sqrt(rij[0]*rij[0]+rij[1]*rij[1]+rij[2]*rij[2]);
       };
       rdist = (mod_rij-d_0)/r_0;
+      moment = pow(mod_rij, colvar.moment[i_c]);
       /* analitic limit of the switching function */
       if(rdist<=0.){
-       ncoord+=1.;
-       dfunc=0.;
+       ncoord+=moment;
+       dfunc=colvar.moment[i_c] * moment / (mod_rij * mod_rij);
       }else if(rdist>0.999999 && rdist<1.000001){
-       ncoord+=nn/mm;
-       dfunc=0.5*nn*(nn-mm)/mm;
+	func = nn / mm;
+	ncoord+= moment * func;
+	dfunc= colvar.moment[i_c] * moment * func / (mod_rij * mod_rij) + moment * (0.5*nn*(nn-mm)/mm) / mod_rij;
       }else if(rdist>threshold){
        dfunc=0.;
       }else{
@@ -203,16 +221,17 @@ void PREFIX coord_restraint_no_nlist(int i_c, struct mtd_data_s *mtd_data)
         num = 1.-rNdist*rdist;
         iden = 1./(1.-rMdist*rdist);
         func = num*iden;
-        ncoord += func;
-        dfunc = ((-nn*rNdist*iden)+(func*(iden*mm)*rMdist))/(mod_rij*colvar.r_0[i_c]);
-      }
+	ncoord += moment * func;
+        dfunc = ((-nn*rNdist*iden)+(func*(iden*mm)*rMdist))/(mod_rij*colvar.r_0[i_c]);	
+	dfunc = colvar.moment[i_c] * moment * func / (mod_rij * mod_rij) + moment * dfunc;	
+       }
       for(ix=0;ix<3;ix++) {
-        colvar.myder[i_c][i][ix] += +dfunc*rij[ix];
-        colvar.myder[i_c][j][ix] += -dfunc*rij[ix];
+        colvar.myder[i_c][i][ix] += colvar.cn_scale[i_c] * dfunc*rij[ix];
+        colvar.myder[i_c][j][ix] += -colvar.cn_scale[i_c] * dfunc*rij[ix];
       }
     }
   }
-  colvar.ss0[i_c] = ncoord;
+  colvar.ss0[i_c] = colvar.cn_scale[i_c] * ncoord;
 
 }
 
@@ -229,7 +248,7 @@ void PREFIX coord_restraint(int i_c, struct mtd_data_s *mtd_data)
 
 int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog)
 {
-  int i, iw, iat, j, help;
+  int i, iw, iat, j, help, moment;
   double r_0, d_0,r_cut=0.0,r_skin=0.0;
   double delta = 0.0;
   char string[400];
@@ -237,8 +256,13 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
   real threshold, value;
   help=0;
   d_0=0.;
+  moment = 0;
 
   colvar.cell_pbc[count]=1; // default is PBC
+  colvar.moment[count]=0; //default
+  colvar.b_scale_cn[count] = 0; //default, do not scale
+  colvar.cn_scale[count] = 1; //default, do not scale
+  colvar.groups[count] = -1;
 
   iw = seek_word(word,"LIST");
   if(iw>=0){   
@@ -258,6 +282,12 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
   if(iw>=0) { sscanf(word[iw+1],"%i", &colvar.nn[count]); } else { fprintf(fplog,"|- NEEDED NN KEYWORD FOR COORD\n"); help=1;}
   iw=seek_word(word,"MM");
   if(iw>=0) { sscanf(word[iw+1],"%i", &colvar.mm[count]);} else { fprintf(fplog,"|- NEEDED MM KEYWORD FOR COORD\n"); help=1;}
+  iw=seek_word(word,"MOMENT");
+  if(iw>=0) { sscanf(word[iw+1],"%i", &moment);}
+  iw=seek_word(word,"SHARE_NLIST");
+  if(iw>=0) { sscanf(word[iw+1],"%i", &colvar.groups[count]);}
+  iw=seek_word(word,"SCALE");
+  if(iw>=0) { colvar.b_scale_cn[count] = 1;}
   iw=seek_word(word,"R_0");
   if(iw>=0) { sscanf(word[iw+1],"%lf", &r_0); } else { fprintf(fplog,"|- NEEDED R_0 KEYWORD FOR COORD\n"); help=1;}
   iw=seek_word(word,"D_0");
@@ -289,14 +319,16 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
   colvar.r_0[count]      = (real) r_0;
   colvar.d_0[count]      = (real) d_0;
   colvar.type_s[count]   = 3;
+  colvar.moment[count]   = moment;
 
   fprintf(fplog, "%1i-COORDINATION NUMBER OF (1st SET: %i ATOMS) WRT (2nd SET: %i ATOMS); ", count+1, colvar.list[count][0], colvar.list[count][1]);
   if(colvar.cell_pbc[count]) fprintf(fplog, " PBC ON");
   else                       fprintf(fplog, " PBC OFF");
   if (logical.do_hills) fprintf(fplog," SIGMA %f\n",colvar.delta_r[count]);
   else fprintf(fplog,"\n"); 
-  fprintf(fplog, "|--FUNCTIONAL FORM: (1-((d_ij-d_0)/r_0)^n) / (1-((d_ij-d_0)/r_0)^m) \n");
-  fprintf(fplog, "|--PARAMETERS: n= %i m= %i r_0= %f d_0= %f\n", colvar.nn[count], colvar.mm[count], colvar.r_0[count], colvar.d_0[count]);
+  fprintf(fplog, "|--FUNCTIONAL FORM: r^(moment) * (1-((d_ij-d_0)/r_0)^n) / (1-((d_ij-d_0)/r_0)^m) \n");
+  fprintf(fplog, "|--PARAMETERS: n= %i m= %i r_0= %f d_0= %f moment= %i\n", colvar.nn[count], colvar.mm[count], colvar.r_0[count], colvar.d_0[count], colvar.moment[count]);
+    
 
   threshold=pow(0.00001,1./(colvar.nn[count]-colvar.mm[count]));
   value=(1.-pow(threshold,colvar.nn[count]))/(1.-pow(threshold,colvar.mm[count]));
@@ -312,6 +344,7 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
   //allocate arrays for internal Verlet lists machinery
   if(r_cut>0.0 || r_skin>0.0)  
   {  
+    if(colvar.groups[count] > -1) plumed_error("CAN ONLY USE EITHER R_CUT OR SHARE_NLIST");
      if (r_cut>=r_skin) plumed_error("R_SKIN MUST BE GREATER THAN R_CUT");
      if (colvar.logic[count]) plumed_error("PAIR OPTION IS NOT WORKING WITH VERLET LIST");
      fprintf(fplog, "|--VERLET LIST ACTIVE: R_CUT %lf R_SKIN %lf \n",r_cut,r_skin); 
@@ -322,9 +355,17 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
      (nlist[count]).nn=(int *) malloc(colvar.list[count][0]*sizeof(int));
      (nlist[count]).ni=int_2d_array_alloc(colvar.list[count][0],MAXNN);
      coord_step=0;
-  } 
-  else
+  } else if(colvar.groups[count] > -1) {
+    colvar.groups[count] -= 1; //convert index from input (1->) to code (0->)
+    fprintf(fplog,"|--WILL SHARE NLIST WITH CV %d\n", colvar.groups[count] + 1);    
+    logical.nlist[count] = 1;
+  } else
   {fprintf(fplog,"|--VERLET LIST NOT ACTIVE\n");}
+  
+  if(colvar.b_scale_cn[count]) {
+    colvar.cn_scale[count] = 1. / colvar.natoms[count];
+    fprintf(fplog, "|--WILL SCALE COORDINATION NUMBER BY ATOM NUMBER--|\n" );
+  }
 
   iat=0;
   fprintf(fplog,"|- 1st SET MEMBERS: ");
@@ -334,3 +375,4 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
 
   return colvar.natoms[count]; 
 }
+
