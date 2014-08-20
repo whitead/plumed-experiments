@@ -363,7 +363,7 @@ int PREFIX read_coord(char **word, int count, t_plumed_input *input, FILE *fplog
   {fprintf(fplog,"|--VERLET LIST NOT ACTIVE\n");}
   
   if(colvar.b_scale_cn[count]) {
-    colvar.cn_scale[count] = 1. / colvar.natoms[count];
+    colvar.cn_scale[count] = 1. / colvar.list[count][0];
     fprintf(fplog, "|--WILL SCALE COORDINATION NUMBER BY ATOM NUMBER--|\n" );
   }
 
