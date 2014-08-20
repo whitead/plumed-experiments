@@ -60,14 +60,12 @@ int PREFIX independent_stash_cv(int i_c, int atom_index){
     break;
   case 1:
     //restraint_dist
-    // colvar.list is length of list 1. colvar.natoms is length of list 1 + 2
-
+    // colvar.list is the length of list 1. colvar.natoms is length of lists 1 + 2
     //check if we're done
     if(atom_index < (colvar.natoms[i_c] - colvar.list[i_c][0]) * colvar.list[i_c][0]) {
 
       int index1 = atom_index % colvar.list[i_c][0];
-      int index2 = colvar.natoms[i_c] - colvar.list[i_c][0]
-	+ atom_index / colvar.list[i_c][0];
+      int index2 = colvar.natoms[i_c] - atom_index / colvar.list[i_c][0] - 1;
 
       //Check if the pair is the same particle
       if(colvar.cvatoms[i_c][index1] == colvar.cvatoms[i_c][index2])
