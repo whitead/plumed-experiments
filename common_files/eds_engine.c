@@ -81,6 +81,127 @@ void PREFIX eds_init(int cv_number, real update_period,
  
 }
 
+void PREFIX read_eds(char **word, int nw, t_plumed_input *input, FILE *fplog) {
+  //EXAMPLE for adaptive
+  //EDS STRIDE 500 SIMTEMP 300 SEED 4143 FILENAME FOO CV LIST 1 2 4
+  //EDS CV CENTERS 0.5 2.5 2.3
+  //EDS CV RANGES 5 5 5
+  //[optional] EDS CV CONSTANTS 2403.1 4003.31 499.1
+  //EXAMPLE for fixed
+  //EDS SIMTEMP 300 CV LIST 1 2 4
+  //EDS CV CENTERS 0.5 2.5 2.3
+  //EDS CV RANGES 34 23 4      
+
+
+  int i, icv, iw, iat, j;
+  real uno;
+
+  if(!logical.eds) 
+    fprintf(fplog, "Enabling experiment directed simulation\n");
+  logical.eds = 1;
+  iw = 1;
+  
+  if(!strcmp(word[iw], "CV")) {
+    iw++;
+    if(!strcmp(word[iw++], "CENTERS")) {
+      if(eds.cv_number == 0) {
+	plumed_error("Must define CVs first for EDS with [CV LIST 1 2 3]");
+      }
+      for(icv = 0;iw < nw; iw++) {
+	sscanf(word[iw], "%lf", &uno);
+	eds.centers[icv] = uno;
+	fprintf(fplog, "EDS: Will center CV %d at %lf\n", icv+1,
+		eds.centers[icv]);
+	icv++;
+      }
+    }
+    else if(!strcmp(word[iw - 1], "RANGES")) {
+      if(eds.cv_number == 0) {
+	plumed_error("Must define CVs first for EDS with [CV LIST 1 2 3]");
+      }
+      for(icv = 0;iw < nw; iw++) {
+	sscanf(word[iw], "%lf", &uno);
+	eds.max_coupling_range[icv] = uno;
+	eds.max_coupling_rate[icv] = eds.max_coupling_range[icv] / (10 * eds.update_period);
+	fprintf(fplog, 
+		"EDS: Will cap range of CV %d at %lf\n", 
+		icv+1,
+		eds.max_coupling_range[icv]);
+	icv++;
+      }
+    } else if(!strcmp(word[iw - 1], "CONSTANTS")) {
+      if(eds.cv_number == 0) {
+	plumed_error("Must define CVs first for EDS with [CV LIST 1 2 3]");
+      }
+      for(icv = 0;iw < nw; iw++) {
+	sscanf(word[iw], "%lf", &uno);
+	eds.current_coupling[icv] = uno;
+	eds.set_coupling[icv] = uno;
+	fprintf(fplog, 
+		"EDS: Starting CV %d at %lf\n", 
+		icv+1,
+		eds.current_coupling[icv]);
+	icv++;
+      }
+    } else {
+      plumed_error("Syntax is EDS CV RANGES.... or EDS CV CENTERS....\n");
+    }
+  } else {
+    
+    if(eds.cv_number != 0) {
+      plumed_error("Syntax is EDS CV RANGES.... or EDS CV CENTERS....or EDS CV CONSTANTS\n");
+    }
+    
+    if(iw >= nw - 2 || strcmp(word[iw++], "STRIDE"))
+      plumed_error("Must specify STRIDE in EDS [EDS 500 CV LIST 1 3]\n");
+    int update_period;
+    if(!sscanf(word[iw++], "%d", &update_period)){
+      plumed_error("Must specify STRIDE in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");
+      
+    }
+    
+    if(iw >= nw - 2 || strcmp(word[iw++], "SIMTEMP"))
+      plumed_error("Must specify SIMTEMP in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");
+    if(!sscanf(word[iw++], "%lf", &uno)){
+      plumed_error("Must specify SIMTEMP in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 4313 CV LIST 1 3]\n");
+    }
+    
+    int eds_seed = 0;
+    if(!strcmp(word[iw], "SEED")) {
+      if(!sscanf(word[++iw], "%d", &eds_seed)){
+	plumed_error("Must use integer SEED\n");
+      }
+      iw++;
+    }
+    
+    char filename[200];
+    if(!strcmp(word[iw], "FILENAME")) {
+      if(!sscanf(word[++iw], "%s", filename)){
+	plumed_error("Filename invalid\n");
+      }
+      iw++;
+    } else {
+      strcpy(filename, "EDS_OUT");
+    }
+    
+    if(iw < nw - 2 && !strcmp(word[iw++], "CV") && !strcmp(word[iw++], "LIST")) {
+      int* cv_map = (int*) malloc(sizeof(int) * nconst_max);
+      for(i = 0;iw < nw; iw++) {
+	sscanf(word[iw], "%d", &icv);
+	cv_map[i] = icv - 1;
+	fprintf(fplog, 
+		"EDS: Will use CV %d \n", 
+		icv);
+	i++;
+      }
+      cv_map = (int *) realloc(cv_map, sizeof(int) * i);
+      eds_init(i, update_period, uno, eds_seed, 0, cv_map, (const char*) filename, &eds);   
+    } else {
+      plumed_error("Must specify CV List in EDS [EDS 500 CV LIST 1 3]\n");
+    }
+  }
+}
+
 void PREFIX eds_free(t_eds* eds) {
 
   free(eds->centers);
@@ -259,8 +380,9 @@ void PREFIX eds_write(t_eds* eds, long long int step) {
     for(i = 0; i < eds->cv_number; i++) 
       fprintf(eds->output_file, "%0.5f ", eds->current_coupling[i]);
     
-    //close file
+    //flush file
     fprintf(eds->output_file, "\n");
+    fflush(eds->output_file);
 #else
     fprintf(eds->output_file, "\n");
     dump_eds(eds);
