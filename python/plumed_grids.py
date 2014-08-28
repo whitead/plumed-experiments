@@ -9,6 +9,7 @@ try:
 except AttributeError:
     NDITER = False
 
+
 class Grid(object):
     """PLUMED grid class
     
@@ -70,32 +71,43 @@ class Grid(object):
         g.pot = np.copy(self.pot)
         return g
 
-
     def load_data(self, filename, reset_bounds=True):
-        """Read data line by line from a file and load it into the potential"""
+        """Read data line by line from a file and load it into the potential
+
+        The data should specify a grid point (the left edge of a bin) and the potential in that bin/grid point.
+        The number of grid points specified is the number of bins, so if 0 and 1 are specified it's assumed there 
+        are 2 bins spanning 0 to 2. Grid points must be spaced evenly in each dimension."""
         data = np.genfromtxt(filename)
         if(np.shape(data)[1] != self.dims + 1):
             raise ValueError("Incorrect number of dimensions in file {}".fomrat(filename))
 
+        uniques = [np.unique(data[:,i]) for i in range(self.dims)]
+        dx = []
+        for u in uniques:
+            dx.append((np.max(u) - np.min(u)) / (len(u) - 1))
+            
         if(reset_bounds):
             for x in data:
-                self.min = [min(m,xi) for xi,m in zip(x, self.min)]
-                self.max = [max(m,xi) for xi,m in zip(x, self.max)]
-            print 'Reset min to {} and max to {}'.format(self.min, self.max) 
-            
+                self.min = [min(m,xi) for xi,m in zip(x[:-1], self.min)]
+                self.max = [max(m,xi+dxi) for xi,m,dxi in zip(x[:-1], self.max,dx)]        
 
-        #make sure bins are large enough
-        old_bins = self.nbins
-        self.set_bin_number([np.shape(data)[0] for x in self.nbin])
+        
+        #find number of unique in each dimension, should be the bin number 
+        
+        old_nbins = self.nbins
+        self.set_bin_number( [len(np.unique(data[:,i])) for i in range(self.dims)] )        
         for x in data:
             indexs = self.np_to_index(x[:-1])
             self.pot[tuple(indexs)] += x[-1]
-        self.set_bin_number(old_bins)
-        
+        print self.pot
+        self.set_bin_number(old_nbins)
+        print self.pot
+
 
     def read_plumed_grid(self, filename):
 
         import re
+        self.clear()
         
         #I'll ignore the force for now
         with open(filename, 'r') as f:
@@ -108,7 +120,7 @@ class Grid(object):
                 if(line.find('MAX') != -1):
                     self.max = [float(x) for x in re.findall(r'-*\d+\.*\d*', line)]
                 if(line.find('BIN') != -1):
-                    bins = [int(x) + 1 for x in re.findall(r'\d{1,}', line)]
+                    bins = [int(x) for x in re.findall(r'\d{1,}', line)]
                 if(line.find('NVAR') != -1):
                     ncv = [int(x) for x in re.findall(r'\d{1,}', line)]
                     ncv = ncv[0]
@@ -116,17 +128,17 @@ class Grid(object):
                     self.periodic = [int(x) == 1 for x in re.findall(r'\d{1,}', line)]
                 line = f.readline()
         
-        #undo that thing that metadynamics does for periodicity 
-        for i,p in enumerate(self.periodic):
-            if(p):
-                bins[i] -= 1
-
         #now load data
         data = np.genfromtxt(filename)
+        #check header
         assert np.shape(data)[0] == reduce(lambda x,y: x * y, bins, 1), "Number of lines in grid does not match stated bin size: read {}, bins = {} => {}".format(np.shape(data)[0], bins, reduce(lambda x,y: x * y, bins, 1))
-        self.pot = data[:,ncv]
-        
-        self.pot = np.reshape(self.pot, bins)
+
+        #non-periodic dimensions get an extra meaningless bin. Remove it
+        for i,p in enumerate(self.periodic):
+            if(not p):
+                bins[i] -= 1
+                
+        self.pot = data[tuple([slice(0,b,1) for b in bins])]
       
 
         if(ncv > 1):
@@ -142,7 +154,7 @@ class Grid(object):
 
     @property
     def dims(self):
-        return len(self.min)
+        return self.ncv
     
     @property
     def nbins(self):
@@ -151,7 +163,7 @@ class Grid(object):
         if(self._nbins is not None):
             return self._nbins
         return np.shape(self.pot)        
-    
+        
     @property
     def ncv(self):
         if(self.pot is None):
@@ -223,6 +235,8 @@ class Grid(object):
         self.max = [x + l / 2 for x,l in zip(self.max, length_diff)]
 
     def to_index(self, x, i):
+        if(self.periodic[i]):
+            x -= (self.max[i] - self.min[i]) * floor((x - self.min[i]) / (self.max[i] - self.min[i]))
         return max(0, min(self.nbins[i] - 1, int(floor( (x - self.min[i]) / self.dx[i]))))
 
     def index_to_coord(self, index):
@@ -230,7 +244,10 @@ class Grid(object):
 
 
     def np_to_index(self, x):
-        return np.fmax(np.zeros(np.shape(x)), np.fmin(np.array(self.nbins) - 1, np.floor( (x - np.array(self.min)) / np.array(self.dx))))
+        if(sum(self.periodic) == 0):
+            return np.fmax(np.zeros(np.shape(x)), np.fmin(np.array(self.nbins) - 1, np.floor( (x - np.array(self.min)) / np.array(self.dx))))
+        else:
+            return tuple([self.to_index(x,i) for i,x in enumerate(x)])
 
 
     def add_value(self, x, v):
@@ -285,10 +302,16 @@ class Grid(object):
         array_copy.insert(0, element)
         return array_copy
 
-    def set_bin_number(self, new_shape):
+    def set_bin_number(self, new_shape, mode='constant'):
+        if(type(new_shape) == int):
+            new_shape = (new_shape)
+        else:
+            new_shape = tuple(new_shape)
+        if(np.array_equal(new_shape, self.nbins)):
+            return
         from scipy.ndimage.interpolation import zoom
         zoom_factor = np.array(new_shape, dtype='float') / self.nbins
-        self.pot = zoom(self.pot, zoom_factor, prefilter=True, mode='nearest')
+        self.pot = zoom(self.pot, zoom_factor, prefilter=True, mode=mode)
         self.meshgrid = None
 
     def _enumerate_grid(self, fxn, dim=None, indices=[], end_fxn=None):
@@ -329,9 +352,15 @@ class Grid(object):
     def _print_grid_end(self, indices, output):
         for i,j in enumerate(indices):
             output.write('{: 10.8f} '.format(j * self.dx[i] + self.min[i]))
-        #copy the last bin to the boundary
-        indices = [i if i < nb else nb - 1 for i,nb in zip(indices,self.nbins)]
-        output.write('{: 10.8f}\n'.format(self.pot[tuple(indices)]))        
+
+        #copy the last bin to the boundary if non-periodic (so we end up with extra bin)
+        write_more = False
+        for i in indices:
+            if(i == self.nbins[i] and not self.periodic[i]):
+                write_more = True
+        if(write_more):
+            indices = [i if i < nb else nb - 1 for i,nb in zip(indices,self.nbins)]
+            output.write('{: 10.8f}\n'.format(self.pot[tuple(indices)]))        
     
     def plot_2d(self, filename, cmap='jet', resolution=None, axis=(1,0), hold=False):
         assert self.dims >= 2
@@ -369,6 +398,7 @@ class Grid(object):
 
     def plot_2d_region(self, filename, *region_functions):
         assert self.dims >= 2
+        assert NDITER, "numpy nditer unavailable"
         cmap = 'jet'
         axis=(1,0)
         if(self.meshgrid is None):
@@ -405,6 +435,7 @@ class Grid(object):
         a single point (N numbers per N dimensions). Simpson's Rule is 
         used for integration.
         """
+        assert NDITER, "numpy nditer unavailable"
         #make sure we don't have gigantic numbers to start
         self.pot -= np.max(self.pot)
         Z = np.exp(-self.pot)
@@ -432,27 +463,11 @@ class Grid(object):
         output.write('#! NVAR {}\n'.format(self.ncv))
         self._print_header_array('TYPE', self.types, output)
 
-        #Some kind of weird Plumed convention
-        mod_bins = list(self.nbins)        
-        mod_max = copy.copy(self.max)
-        for i,p in enumerate(self.periodic):
-            mod_bins[i] -= 1 if p else 0
-            mod_max[i] -= self.dx[i] if p else 0
-
-        #swap in 
-        self._nbins = mod_bins
-        self.max, mod_max = mod_max, self.max        
-                
         self._print_header_array('BIN', np.shape(self.pot), output)
         self._print_header_array('MIN', self.min, output)
-        self._print_header_array('MAX', mod_max, output)
+        self._print_header_array('MAX', self.max, output)
         self._print_header_array('PBC', [1 if x else 0 for x in self.periodic], output)
         self._enumerate_grid(lambda x: self._print_grid(x, output), end_fxn=lambda x: self._print_grid_end(x,output))
-
-        #swap out 
-        self._nbins = None
-        self.max, mod_max = mod_max, self.max        
-        
 
     def add_png_to_grid(self, filename, invert=False):
         if(self.ncv != 2):
@@ -479,28 +494,3 @@ class Grid(object):
         self.normalize()
         self.set_bin_number(old_bins)
 
-def test():
-    import sys
-    import matplotlib.pyplot as plt
-    g = Grid()
-    g.add_cv("Distance", 0, 8, 8)
-    g.add_cv("Distance", 0, 8, 8)
-    g.add_png_to_grid("circle.png")
-    g.set_bin_number((512,512))
-    plt.imshow(np.exp(g.pot), interpolation='none', cmap='gray')
-    plt.savefig("circle_out.png", res=300)
-
-
-    g = Grid()
-    g.add_cv("Absolute position", 0, 10, 128, False)
-    g.add_cv("Absolute position", 0, 10, 128, False)
-    g.add_png_to_grid("uc_shield.png", invert=True)
-    g.set_bin_number((512,512))
-    g.set_min([-1,-1])
-    g.set_max([11,11])
-    plt.imshow(np.exp(g.pot), interpolation='none', cmap='gray')
-    plt.savefig("uc_out.png")
-    g.write(sys.stdout)    
-
-if __name__ == "__main__":
-    test()
