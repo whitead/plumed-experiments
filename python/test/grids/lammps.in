@@ -5,13 +5,13 @@ neigh_modify every 1 delay 0 check no
 atom_modify map array sort 100000 5
 boundary p p p
 
-region bbox block 0 5 0 5 0 5
+region bbox block 0 2.5 0 2.5 0 2.5
 create_box 1 bbox
 lattice fcc 0.864
 create_atoms 1 box
 
 mass 1 1.0
-pair_style lj/cut 3
+pair_style lj/cut 2.5
 pair_coeff * * 1.2 0.9 
 
 thermo_style custom step temp etotal
@@ -22,4 +22,4 @@ fix all_nve all nve
 
 fix plumed_1 all plumed plumedfile ${test_index}.plumed outfile lj.plumed.out
 
-run 2
+run 250

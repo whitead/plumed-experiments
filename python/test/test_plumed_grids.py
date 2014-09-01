@@ -198,29 +198,45 @@ class TestPlumedGrid(unittest.TestCase):
         self.assertEqual(g.nbins , (1,1))
         self.assertTrue(abs(g.pot[0,0] - 4) < EPSILON)        
 
-    def test_eq(self):
-        pass
+    def test_add(self):
+        g = Grid()
+        g.add_cv('Distance', 5, 10, 5)
+        g.pot[:] = 1
+
+        h = Grid()
+        h.add_cv('Distance', 5, 7, 5)
+        h.pot[:] = 1
+        
+        g.add(h)
+        
+        self.assertTrue(abs(g.get_value([5]) - 2) < EPSILON)
+        self.assertTrue(abs(g.get_value([7]) - 2) < EPSILON)
+        self.assertTrue(abs(g.get_value([8]) - 1) < EPSILON)
+        self.assertTrue(abs(g.get_value([10]) - 1) < EPSILON)
+        
 
     def test_set_min_max(self):
-        pass
+        g = Grid()
+        g.add_cv('Distance', 5, 10, 5)
+        g.set_min((0,))
+        self.assertEqual(g.min[0], 0)
+        self.assertEqual(g.nbins[0], 5)
+        self.assertEqual(g.dx[0], 2)
+
 
     def test_rescale(self):
-        pass
+        g = Grid()
+        g.add_cv('Distance', 2.5,7.5,10)
+        g.add_cv('Distance', 0,10,10)
 
-    def test_add(self):
-        pass
-
-    def test_plot_2d_region(self):
-        pass
-
-    def test_integrate_region(self):
-        pass
-
-    def test_normalize(self):
-        pass
-
-    def test_add_png_to_grid(self):
-        pass
+        g.rescale([2,1])
+        
+        self.assertEqual(g.min[0], 0)
+        self.assertEqual(g.max[0], 10)
+        self.assertEqual(g.min[1], 0)
+        self.assertEqual(g.max[1], 10)
+        self.assertEqual(g.nbins[0], 10)
+        self.assertTrue(abs(g.dx[0] - g.dx[1] ) < EPSILON)
 
     def test_plumed_grid_consistency(self):
         for i in range(1, PLUMED_GRID+1):
@@ -231,7 +247,8 @@ class TestPlumedGrid(unittest.TestCase):
             g.write_plumed_grid(output)
             h = Grid()
             h.read_plumed_grid(output)            
-            if(h != g):
+            if(not h.__eq__(g)):
+                print h == g
                 print "Error on {}".format(output)
             self.assertEqual(h, g)
 

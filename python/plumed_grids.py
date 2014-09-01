@@ -181,6 +181,7 @@ class Grid(object):
             print self.max, other.max
             return False
         if(np.all(np.abs(self.pot - other.pot) > 0.0001)):
+            print self.pot, other.pot
             return False
         return True
 
@@ -294,6 +295,8 @@ class Grid(object):
 
 
     def rescale(self, scale):
+        """Rescale the mesh grid, stretching it out or shrinking it down        
+        """
         assert len(scale) == self.ncv
         length_diff = [(y - x) * (s - 1) for x,y,s in zip(self.min, self.max, scale)]
         self.min = [x - l / 2 for x,l in zip(self.min, length_diff)]
@@ -328,7 +331,8 @@ class Grid(object):
             raise ValueError("Dimension of given x vector does not match grid dimension!")
         index = [0 for xi in x]
         for i, xi in enumerate(x):
-            assert xi >= self.min[i] and xi <= self.max[i],"Mesh point is not within grid dimension {}: {}, [{}, {}]".format(i, xi, self.min[i], self.max[i])
+            if(not (xi >= self.min[i] and xi <= self.max[i])):
+                raise IndexError,"Mesh point is not within grid dimension {}: {}, [{}, {}]".format(i, xi, self.min[i], self.max[i])
             index[i] = self.to_index(xi, i)
         self.pot[tuple(index)] += v
 
@@ -339,7 +343,8 @@ class Grid(object):
         for i, xi in enumerate(x):
             if(self.periodic[i]):
                 xi = self._wrap(xi,i)
-            assert xi >= self.min[i] and xi <= self.max[i],"Mesh point is not within grid dimension {}: {}, [{}, {}]".format(i, xi, self.min[i], self.max[i])
+            if(not (xi >= self.min[i] and xi <= self.max[i])):
+                raise IndexError,"Mesh point is not within grid dimension {}: {}, [{}, {}]".format(i, xi, self.min[i], self.max[i])
             index[i] = self.to_index(xi, i)
         self.pot[tuple(index)] = v
 
@@ -350,7 +355,8 @@ class Grid(object):
         for i, xi in enumerate(x):
             if(self.periodic[i]):
                 xi = self._wrap(xi,i)
-            assert xi >= self.min[i] and xi <= self.max[i],"Mesh point is not within grid dimension {}: {}, [{}, {}]".format(i, xi, self.min[i], self.max[i])
+            if(not (xi >= self.min[i] and xi <= self.max[i])):
+                raise IndexError,"Mesh point is not within grid dimension {}: {}, [{}, {}]".format(i, xi, self.min[i], self.max[i])
             index[i] = self.to_index(xi, i)
         return self.pot[tuple(index)]
 
@@ -363,7 +369,10 @@ class Grid(object):
                     return
 
         def do_add(x):
-            self.pot[tuple(x)] += other_grid.get_value(self.index_to_coord(x))
+            try:
+                self.pot[tuple(x)] += other_grid.get_value(self.index_to_coord(x))
+            except IndexError:
+                pass
         self._enumerate_grid(do_add)
 
 
