@@ -14,7 +14,7 @@ class Grid(object):
     """PLUMED grid class
     
     Member variables: 
-      nbins: number of bins for each cv
+      grid_points: number of points in the pot for each cv
       min: min for each cv
       max: max for each cv
       periodic: logical, indicating periodicity for each cv
@@ -59,7 +59,7 @@ class Grid(object):
         self.periodic = []
         self.pot = None
         self.meshgrid = None
-        self._nbins = None
+        self._grid_points = None
 
 
     def clone(self):
@@ -69,45 +69,49 @@ class Grid(object):
         g.types = copy.copy(self.types)
         g.periodic = copy.copy(self.periodic)
         g.pot = np.copy(self.pot)
+        g._grid_points = self._grid_points
         return g
 
     def load_data(self, filename, reset_bounds=True):
         """Read data line by line from a file and load it into the potential
 
-        The data should specify a grid point (the left edge of a bin) and the potential in that bin/grid point.
-        The number of grid points specified is the number of bins, so if 0 and 1 are specified it's assumed there 
-        are 2 bins spanning 0 to 2. Grid points must be spaced evenly in each dimension."""
+        The data should specify a grid points and the potential in
+        that bin/grid point. If a dimension is periodic, it's
+        assumed the final grid point wraps to the first point."""
+
         data = np.genfromtxt(filename)
         if(np.shape(data)[1] != self.dims + 1):
-            raise ValueError("Incorrect number of dimensions in file {}".fomrat(filename))
+            raise ValueError("Incorrect number of dimensions in file {}".format(filename))
 
+        #find number of unique in each dimension
         uniques = [np.unique(data[:,i]) for i in range(self.dims)]
         dx = []
         for u in uniques:
-            dx.append((np.max(u) - np.min(u)) / (len(u) - 1))
-            
+            dx.append((np.max(u) - np.min(u)) / len(u))
+
         if(reset_bounds):
             for x in data:
                 self.min = [min(m,xi) for xi,m in zip(x[:-1], self.min)]
-                self.max = [max(m,xi+dxi) for xi,m,dxi in zip(x[:-1], self.max,dx)]        
+                self.max = [max(m,xi) for xi,m,dxi in zip(x[:-1], self.max,dx)]        
+        
 
         
-        #find number of unique in each dimension, should be the bin number 
-        
-        old_nbins = self.nbins
-        self.set_bin_number( [len(np.unique(data[:,i])) for i in range(self.dims)] )        
+        old_grid_points = self.grid_points
+        self.set_grid_point_number( [len(np.unique(data[:,i])) for i in range(self.dims)] ) 
+        self.pot[:] = 0
         for x in data:
             indexs = self.np_to_index(x[:-1])
-            self.pot[tuple(indexs)] += x[-1]
-        print self.pot
-        self.set_bin_number(old_nbins)
-        print self.pot
+
+            assert self.pot[tuple(indexs)] == x[-1] or self.pot[tuple(indexs)] == 0, "Error, value {} was set to 2 different values {} and {}, likely due to periodic bounddary wrapping".format(x[:-1], x[-1], self.pot[tuple(indexs)])
+
+            self.pot[tuple(indexs)] = x[-1]
+        self.set_grid_point_number(old_grid_points)
 
 
     def read_plumed_grid(self, filename):
 
         import re
-        self.clear()
+        self._clear()
         
         #I'll ignore the force for now
         with open(filename, 'r') as f:
@@ -127,20 +131,28 @@ class Grid(object):
                 if(line.find('PBC') != -1):
                     self.periodic = [int(x) == 1 for x in re.findall(r'\d{1,}', line)]
                 line = f.readline()
+
+        #convert to grid_points
+        grid_points = bins
+        for i in range(len(grid_points)):
+            if(not self.periodic[i]):
+                grid_points[i] += 1
         
         #now load data
-        data = np.genfromtxt(filename)
+        data = np.genfromtxt(filename)        
         #check header
-        assert np.shape(data)[0] == reduce(lambda x,y: x * y, bins, 1), "Number of lines in grid does not match stated bin size: read {}, bins = {} => {}".format(np.shape(data)[0], bins, reduce(lambda x,y: x * y, bins, 1))
+        assert np.shape(data)[0] == reduce(lambda x,y: x * y, grid_points, 1), "Number of lines in grid does not match stated grid point number (calculated from NBINS): read {}, grid points = {} => {}".format(np.shape(data)[0], grid_points, reduce(lambda x,y: x * y, grid_points, 1))
 
-        #non-periodic dimensions get an extra meaningless bin. Remove it
-        for i,p in enumerate(self.periodic):
-            if(not p):
-                bins[i] -= 1
-                
-        self.pot = data[tuple([slice(0,b,1) for b in bins])]
-      
 
+        #build the grid
+        self.pot = data[:,ncv]
+        #switch to fortran syntax
+        if(ncv > 1):
+            grid_points[0], grid_points[1] = grid_points[1], grid_points[0]
+        self.pot = np.reshape(self.pot, grid_points)
+
+              
+        #switch to C-style syntax         
         if(ncv > 1):
             #reflect
             self.pot = self.pot[::-1]
@@ -150,19 +162,51 @@ class Grid(object):
   
 
     def __str__(self):
-        return "{} dimension Grid object from {} to {} with {} bins. Periodic = {}, Types = {}".format(self.dims, self.min, self.max, self.nbins, self.periodic, self.types)
+        return "{} dimension Grid object from {} to {} with {} grid points. Periodic = {}, Types = {}".format(self.dims, self.min, self.max, self.grid_points, self.periodic, self.types)
+
+    def __eq__(self, other):
+        if(self.dims != other.dims):
+            print self.dims, other.dims
+            return False
+        if(self.types != other.types):
+            print self.types, other.types
+            return False
+        if(np.all(self.grid_points != other.grid_points)):
+            print self.grid_points, other.grid_points
+            return False
+        if(self.min != other.min):
+            print self.min, other.min
+            return False
+        if(self.max != other.max):
+            print self.max, other.max
+            return False
+        if(np.all(np.abs(self.pot - other.pot) > 0.0001)):
+            return False
+        return True
 
     @property
     def dims(self):
         return self.ncv
     
     @property
-    def nbins(self):
+    def grid_points(self):
         if(self.pot is None):
             return ()
-        if(self._nbins is not None):
-            return self._nbins
+        if(self._grid_points is not None):
+            return self._grid_points
         return np.shape(self.pot)        
+
+    @property
+    def nbins(self):
+        gp = list(self.grid_points)
+        if(gp is None or len(gp) == 0):
+            return gp
+        for i in range(self.dims):
+            if(not self.periodic[i]):
+                gp[i] -= 1
+
+        return tuple(gp)
+
         
     @property
     def ncv(self):
@@ -176,7 +220,28 @@ class Grid(object):
             return 0
         return [float(max - min) / nb for max,min,nb in zip(self.max, self.min, self.nbins)]
 
-    def add_cv(self, name, min, max, bin_number, periodic=False):
+    def add_cv(self, name, min, max, bin_number, periodic=False, grid_point_number=None):
+        """
+        Name can be an integer type or named type. The number of grid
+        points will run from min to max, inclusive. If it's periodic,
+        it's assumed that you do not want the last grid point to wrap
+        to the first grid point so it's excluded.
+        add_cv(1,min=0,max=3,grid_point_number=4, periodic=T) would
+        yield a grid 0, 1, 2 and with non-periodic conditions it would
+        be 0,1,2,3.
+
+        The bin number may be specified instead for prettier
+        spacing. If a grid runs from 0 to 100, the bin number is 100
+        and the grid_point_number is 101 for non-periodic. For bin
+        number 100 if a grid runs from 0 to 100, the grid_point_number
+        is 100.
+        """
+        if(grid_point_number is None):
+            if(periodic):
+                grid_point_number = bin_number
+            else:
+                grid_point_number = bin_number + 1
+
         self.min.append(min)
         self.max.append(max)
         self.meshgrid = None
@@ -186,9 +251,9 @@ class Grid(object):
         else:
             self.types.append(name)
         if(self.pot is None):
-            self.pot = np.zeros(bin_number)
+            self.pot = np.zeros(grid_point_number)
         else:
-            self.pot = np.resize(self.pot, self.nbins + (int(bin_number),))
+            self.pot = np.resize(self.pot, self.grid_points + (int(grid_point_number),))
 
     def add_margin(self, percent,pretty=True):
         """Add a margin around the potential without affecting bin number""" 
@@ -234,10 +299,18 @@ class Grid(object):
         self.min = [x - l / 2 for x,l in zip(self.min, length_diff)]
         self.max = [x + l / 2 for x,l in zip(self.max, length_diff)]
 
+    def _wrap(self, x, i):
+        return x - (self.max[i] - self.min[i]) * floor((x - self.min[i]) / (self.max[i] - self.min[i]))
+
     def to_index(self, x, i):
+        """
+        Returns nearst grid index. If the point exceeds the grid size,
+        the boundary is returned.
+        """
         if(self.periodic[i]):
-            x -= (self.max[i] - self.min[i]) * floor((x - self.min[i]) / (self.max[i] - self.min[i]))
-        return max(0, min(self.nbins[i] - 1, int(floor( (x - self.min[i]) / self.dx[i]))))
+            x = self._wrap(x,i)
+
+        return max(0, min(self.grid_points[i] - 1, int(floor( (x - self.min[i]) / self.dx[i]))))
 
     def index_to_coord(self, index):
         return [self.min[i] + self.dx[i] * j for i,j in zip(range(self.ncv), index)]
@@ -245,7 +318,7 @@ class Grid(object):
 
     def np_to_index(self, x):
         if(sum(self.periodic) == 0):
-            return np.fmax(np.zeros(np.shape(x)), np.fmin(np.array(self.nbins) - 1, np.floor( (x - np.array(self.min)) / np.array(self.dx))))
+            return np.fmax(np.zeros(np.shape(x)), np.fmin(np.array(self.grid_points) - 1, np.floor( (x - np.array(self.min)) / np.array(self.dx))))
         else:
             return tuple([self.to_index(x,i) for i,x in enumerate(x)])
 
@@ -264,6 +337,8 @@ class Grid(object):
             raise ValueError("Dimension of given x vector does not match grid dimension!")
         index = [0 for xi in x]
         for i, xi in enumerate(x):
+            if(self.periodic[i]):
+                xi = self._wrap(xi,i)
             assert xi >= self.min[i] and xi <= self.max[i],"Mesh point is not within grid dimension {}: {}, [{}, {}]".format(i, xi, self.min[i], self.max[i])
             index[i] = self.to_index(xi, i)
         self.pot[tuple(index)] = v
@@ -273,6 +348,8 @@ class Grid(object):
             raise ValueError("Dimension of given x vector does not match grid dimension!")
         index = [0 for xi in x]
         for i, xi in enumerate(x):
+            if(self.periodic[i]):
+                xi = self._wrap(xi,i)
             assert xi >= self.min[i] and xi <= self.max[i],"Mesh point is not within grid dimension {}: {}, [{}, {}]".format(i, xi, self.min[i], self.max[i])
             index[i] = self.to_index(xi, i)
         return self.pot[tuple(index)]
@@ -303,65 +380,64 @@ class Grid(object):
         return array_copy
 
     def set_bin_number(self, new_shape, mode='constant'):
+
         if(type(new_shape) == int):
-            new_shape = (new_shape)
+            new_shape = (new_shape,)
         else:
             new_shape = tuple(new_shape)
         if(np.array_equal(new_shape, self.nbins)):
             return
+
+        gp = []
+        for i in range(self.dims):
+            if(self.periodic[i]):
+                gp.append(new_shape[i])
+            else:
+                gp.append(new_shape[i] + 1)
+
+        self.set_grid_point_number(tuple(gp), mode)
+
+    def set_grid_point_number(self, new_shape, mode='constant'):
+        """
+        Change the number of grid points using a spline
+        interpolation. Intended more for zooming on a grid than expanding.
+        """
+        if(type(new_shape) == int):
+            new_shape = (new_shape)
+        else:
+            new_shape = tuple(new_shape)
+        if(np.array_equal(new_shape, self.grid_points)):
+            return
         from scipy.ndimage.interpolation import zoom
-        zoom_factor = np.array(new_shape, dtype='float') / self.nbins
+        zoom_factor = np.array(new_shape, dtype='float') / self.grid_points
         self.pot = zoom(self.pot, zoom_factor, prefilter=True, mode=mode)
         self.meshgrid = None
 
-    def _enumerate_grid(self, fxn, dim=None, indices=[], end_fxn=None):
+    def _enumerate_grid(self, fxn, dim=None, indices=[]):
         """Apply fxn over the grid. end_fxn will be called on only edges
         """
         if(dim is None):
             dim = self.ncv - 1
-        if(end_fxn is None):
-            end_fxn = lambda x: x
         if(dim > 0):
-            for i in range(self.nbins[dim]):
+            for i in range(self.grid_points[dim]):
                 self._enumerate_grid(fxn, 
                                      dim - 1, 
-                                     Grid._prepend_emit(indices, i), end_fxn)
-            self._enumerate_grid(fxn, 
-                                 dim - 1, 
-                                 Grid._prepend_emit(indices, self.nbins[dim]), end_fxn)
-
-                
+                                     Grid._prepend_emit(indices, i))
         else:
-            #check if any index is at an end
-            if(reduce(lambda x,y: x or y, [x == y for x,y in zip(indices,self.nbins)], False)):
-                for i in range(self.nbins[dim] + 1):
-                    end_fxn(Grid._prepend_emit(indices, i))
-            else:
-                for i in range(self.nbins[dim]):
-                    fxn(Grid._prepend_emit(indices, i))
-                end_fxn(Grid._prepend_emit(indices, self.nbins[dim]))
+            for i in range(self.grid_points[dim]):
+                fxn(Grid._prepend_emit(indices, i))
 
 
 
 
+    def _assign_grid(self, indices, data):
+        self.pot[indices] = data[indices]
+                
     def _print_grid(self, indices, output):
         for i,j in enumerate(indices):
             output.write('{: 10.8f} '.format(j * self.dx[i] + self.min[i]))        
         output.write('{: 10.8f}\n'.format(self.pot[tuple(indices)]))
 
-    def _print_grid_end(self, indices, output):
-        for i,j in enumerate(indices):
-            output.write('{: 10.8f} '.format(j * self.dx[i] + self.min[i]))
-
-        #copy the last bin to the boundary if non-periodic (so we end up with extra bin)
-        write_more = False
-        for i in indices:
-            if(i == self.nbins[i] and not self.periodic[i]):
-                write_more = True
-        if(write_more):
-            indices = [i if i < nb else nb - 1 for i,nb in zip(indices,self.nbins)]
-            output.write('{: 10.8f}\n'.format(self.pot[tuple(indices)]))        
-    
     def plot_2d(self, filename, cmap='jet', resolution=None, axis=(1,0), hold=False):
         assert self.dims >= 2
         import matplotlib.pyplot as plt
@@ -458,16 +534,18 @@ class Grid(object):
 
         
 
-    def write(self, output):
+    def write_plumed_grid(self, output):
+        if(type(output) == type("")):
+            output = open(output, 'w')
         output.write('#! FORCE 0\n')
         output.write('#! NVAR {}\n'.format(self.ncv))
         self._print_header_array('TYPE', self.types, output)
 
-        self._print_header_array('BIN', np.shape(self.pot), output)
+        self._print_header_array('BIN', self.nbins, output)
         self._print_header_array('MIN', self.min, output)
         self._print_header_array('MAX', self.max, output)
         self._print_header_array('PBC', [1 if x else 0 for x in self.periodic], output)
-        self._enumerate_grid(lambda x: self._print_grid(x, output), end_fxn=lambda x: self._print_grid_end(x,output))
+        self._enumerate_grid(lambda x: self._print_grid(x, output))
 
     def add_png_to_grid(self, filename, invert=False):
         if(self.ncv != 2):

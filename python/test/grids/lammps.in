@@ -22,4 +22,4 @@ fix all_nve all nve
 
 fix plumed_1 all plumed plumedfile ${test_index}.plumed outfile lj.plumed.out
 
-run 1
+run 2
