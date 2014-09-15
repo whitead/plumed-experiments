@@ -2,7 +2,7 @@ from math import ceil, floor, log, exp
 import numpy as np
 from scipy.integrate import simps
 import copy
-n
+
 NDITER = True
 try:
     np.nditer
