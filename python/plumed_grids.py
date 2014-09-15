@@ -2,13 +2,12 @@ from math import ceil, floor, log, exp
 import numpy as np
 from scipy.integrate import simps
 import copy
-
+n
 NDITER = True
 try:
     np.nditer
 except AttributeError:
     NDITER = False
-
 
 class Grid(object):
     """PLUMED grid class
@@ -580,4 +579,35 @@ class Grid(object):
         self.pot += gray_scale
         self.normalize()
         self.set_bin_number(old_bins)
+
+    def apply_gaussian_blur(self, radius):
+        pass
+
+def build_EM_map(structure_file, traj_file = None, bins=[25, 25, 25]):
+
+    try:
+        from MDAnalysis import Universe, Atom            
+    except ImportError:
+        print "MDAnalysis package not found"
+        return None
+    
+    u = Universe(structure_file, traj_file)
+    min = [1000, 1000, 1000]
+    max = [-1000, -1000, -1000]
+    for ts in u.trajectory:
+        #get min/max for histogram
+        for a in universe.atoms:
+            min = [min(x,y) for x,y in zip(min,a.pos)]
+            max = [max(x,y) for x,y in zip(max,a.pos)]
+    #now build histogram
+    g = Grid()
+    for mi,ni,bi in zip(min, max, bins):
+        g.add_cv('Absolute position', mi, ni, bins, periodic=False)
+    for ts in u.trajectory:
+        for a in universe.atoms:
+            #proportional to atomic number
+            g.add_value(a.pos, a.atomic_number)
+    g.normalize()
+
+    return g
 
