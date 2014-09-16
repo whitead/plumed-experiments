@@ -576,7 +576,7 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
         }
       }
     } else if(!strcmp(word[0], "EDS")) {
-      read_eds(word, nw, &input, mtd_data->fplog);
+      eds_read(word, nw, &input, mtd_data->fplog);
       
     }else if(!strcmp(word[0],"TREAT_INDEPENDENT")) {
       //Easy to test here

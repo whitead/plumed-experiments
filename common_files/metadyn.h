@@ -1294,11 +1294,12 @@ void eds_init(int cv_number, real update_period,
 		int* cv_map,
 	      const char* filename,
 		t_eds* eds);
- void read_eds(char **word, int nw, t_plumed_input *input, FILE *fplog);
+ void eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog);
+ void eds_read_restart(char **word, int nw, t_plumed_input *input, FILE *fplog);
  void eds_free(t_eds* eds);
  real eds_engine(real* ss0, real* force, t_eds* eds, real boltz);
  void eds_write(t_eds* eds, long long int step);
- void dump_eds(t_eds* eds);
+ void eds_dump(t_eds* eds);
  void dump_array(real* array, int length, FILE* file, const char* name);
  //<ADW
  void apply_forces(struct mtd_data_s *mtd_data );

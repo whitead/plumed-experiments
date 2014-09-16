@@ -81,7 +81,7 @@ void PREFIX eds_init(int cv_number, real update_period,
  
 }
 
-void PREFIX read_eds(char **word, int nw, t_plumed_input *input, FILE *fplog) {
+void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
   //EXAMPLE for adaptive
   //EDS STRIDE 500 SIMTEMP 300 SEED 4143 FILENAME FOO CV LIST 1 2 4
   //EDS CV CENTERS 0.5 2.5 2.3
@@ -91,6 +91,12 @@ void PREFIX read_eds(char **word, int nw, t_plumed_input *input, FILE *fplog) {
   //EDS SIMTEMP 300 CV LIST 1 2 4
   //EDS CV CENTERS 0.5 2.5 2.3
   //EDS CV RANGES 34 23 4      
+  //EXAMPLE for restart
+  //EDS STRIDE 500 SIMTEMP 300 SEED 4143 FILENAME FOO RESTART BAR CV LIST 1 2 4
+  //EDS CV CENTERS 0.5 2.5 2.3
+  //EDS CV RANGES 5 5 5
+
+  
 
 
   int i, icv, iw, iat, j;
@@ -183,7 +189,16 @@ void PREFIX read_eds(char **word, int nw, t_plumed_input *input, FILE *fplog) {
     } else {
       strcpy(filename, "EDS_OUT");
     }
-    
+
+    int restart = 0;
+    char restart_filename[200];
+    if(!strcmp(word[iw], "RESTART")) {
+      if(!sscanf(word[++iw], "%s", restart_filename)){
+	plumed_error("Restart Filename invalid\n");
+      }
+      iw++;
+      restart = 1;
+    } 
     if(iw < nw - 2 && !strcmp(word[iw++], "CV") && !strcmp(word[iw++], "LIST")) {
       int* cv_map = (int*) malloc(sizeof(int) * nconst_max);
       for(i = 0;iw < nw; iw++) {
@@ -196,10 +211,30 @@ void PREFIX read_eds(char **word, int nw, t_plumed_input *input, FILE *fplog) {
       }
       cv_map = (int *) realloc(cv_map, sizeof(int) * i);
       eds_init(i, update_period, uno, eds_seed, 0, cv_map, (const char*) filename, &eds);   
+      if(restart)
+	eds_read_restart(restart_filename, &eds);
     } else {
       plumed_error("Must specify CV List in EDS [EDS 500 CV LIST 1 3]\n");
     }
   }
+}
+
+void PREFIX eds_read_restart(char* filename, t_eds* eds) {
+
+  //Just read it over and over again, so that only the last line is used
+  FILE* restart = fopen(filename, "r");
+  if(restart == NULL)
+    plumed_error("Could not read EDS restart file");
+  int success = 1;
+  while(!feof(restart)) {
+    for(i = 0; i < eds->cv_number; i++) 
+      success &= sscanf(restart, "%0.5f ", eds->current_coupling[i]);
+    for(i = 0; i < eds->cv_number; i++)       
+      success &= sscanf(restart, "%0.5f ", eds->coupling_accum[i]);    
+    if(!success)
+      plumed_error("Found incomplete line in EDS restart file");
+  }
+
 }
 
 void PREFIX eds_free(t_eds* eds) {
@@ -340,7 +375,7 @@ void PREFIX dump_array(real* array, int length, FILE* file, const char* name) {
 
 }
 
-void PREFIX dump_eds(t_eds* eds) {
+void PREFIX eds_dump(t_eds* eds) {
   
   dump_array(eds->centers, eds->cv_number, eds->output_file, "centers");
   dump_array(eds->means, eds->cv_number, eds->output_file, "means");
@@ -377,15 +412,17 @@ void PREFIX eds_write(t_eds* eds, long long int step) {
     
 #ifndef DUMP_EDS
     
-    for(i = 0; i < eds->cv_number; i++) 
+    for(i = 0; i < eds->cv_number; i++)
       fprintf(eds->output_file, "%0.5f ", eds->current_coupling[i]);
+    for(i = 0; i < eds->cv_number; i++)
+      fprintf(eds->output_file, "%0.5f ", eds->coupling_accum[i]);
     
     //flush file
     fprintf(eds->output_file, "\n");
     fflush(eds->output_file);
 #else
     fprintf(eds->output_file, "\n");
-    dump_eds(eds);
+    eds_dump(eds);
     fprintf(eds->output_file, "-------------------------");
 #endif//DUMP_EDS
   }
