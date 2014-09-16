@@ -252,6 +252,18 @@ class TestPlumedGrid(unittest.TestCase):
                 print "Error on {}".format(output)
             self.assertEqual(h, g)
 
+    def test_EM_map(self):
+        with open('test.gro', 'w') as f:
+            f.write(textwrap.dedent('''
+            TEST
+              3
+                1SOL     OW   1   0.230    0.628   0.113
+                1SOL    HW1   2   0.138    0.628   0.150
+                1SOL    HW2   3   0.231    0.589   0.021
+               1.0   1.0   1.0
+            ''')[1:])
+        map = build_EM_map('test.gro')
+        
                         
     
 
