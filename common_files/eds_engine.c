@@ -212,25 +212,35 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
       cv_map = (int *) realloc(cv_map, sizeof(int) * i);
       eds_init(i, update_period, uno, eds_seed, 0, cv_map, (const char*) filename, &eds);   
       if(restart)
-	eds_read_restart(restart_filename, &eds);
+	eds_read_restart(restart_filename, fplog, &eds);
     } else {
       plumed_error("Must specify CV List in EDS [EDS 500 CV LIST 1 3]\n");
     }
   }
 }
 
-void PREFIX eds_read_restart(char* filename, t_eds* eds) {
+void PREFIX eds_read_restart(char* filename, FILE* fplog, t_eds* eds) {
+
+  int i;
 
   //Just read it over and over again, so that only the last line is used
   FILE* restart = fopen(filename, "r");
-  if(restart == NULL)
-    plumed_error("Could not read EDS restart file");
+  if(restart == NULL) {
+    //just skip with warning, since it might be included for future restarts
+    fprintf(fplog, "WARNING: Could not find restart file in EDS, skipping...\n");
+  }
   int success = 1;
   while(!feof(restart)) {
-    for(i = 0; i < eds->cv_number; i++) 
-      success &= sscanf(restart, "%0.5f ", eds->current_coupling[i]);
-    for(i = 0; i < eds->cv_number; i++)       
-      success &= sscanf(restart, "%0.5f ", eds->coupling_accum[i]);    
+    fprintf(fplog, "READING IN EDS RESTART:\n");
+    for(i = 0; i < eds->cv_number; i++) {
+      success &= fscanf(restart, "%lf", eds->current_coupling[i]);
+      fprintf(fplog, "%0.5f \n", eds->current_coupling[i]);
+    }
+    for(i = 0; i < eds->cv_number; i++) {
+      success &= fscanf(restart, "%lf ", eds->coupling_accum[i]);    
+      fprintf(fplog, "%0.5f \n", eds->coupling_accum[i]);
+    }
+    fprintf(fplog, "\nDONE\n");
     if(!success)
       plumed_error("Found incomplete line in EDS restart file");
   }
@@ -408,7 +418,7 @@ void PREFIX eds_write(t_eds* eds, long long int step) {
     
     int i;
     
-    fprintf(eds->output_file, "%12d ", step);
+    fprintf(eds->output_file, "%12ld ", step);
     
 #ifndef DUMP_EDS
     

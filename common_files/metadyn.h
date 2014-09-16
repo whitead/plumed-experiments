@@ -1295,7 +1295,7 @@ void eds_init(int cv_number, real update_period,
 	      const char* filename,
 		t_eds* eds);
  void eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog);
- void eds_read_restart(char **word, int nw, t_plumed_input *input, FILE *fplog);
+ void eds_read_restart(char* restart_filename, FILE* fplog, t_eds* eds);
  void eds_free(t_eds* eds);
  real eds_engine(real* ss0, real* force, t_eds* eds, real boltz);
  void eds_write(t_eds* eds, long long int step);
