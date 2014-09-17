@@ -66,7 +66,9 @@ void PREFIX eds_init(int cv_number, real update_period,
   eds->simtemp = simtemp;  
   eds->seed = seed;
 
-  eds->output_file = fopen(filename, "w");
+  eds->output_filename = (char*) malloc(sizeof(char) * (strlen(filename) + 1));
+  strcpy(eds->output_filename, filename);
+  eds->output_file = NULL;
 
   //divide it by 2 so we spend half equilibrating and half collecting statistics.
   eds->update_period = update_period / 2;
@@ -101,6 +103,12 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
 
   int i, icv, iw, iat, j;
   real uno;
+  char restart_filename[200];
+  int update_period = 0;
+  int eds_seed = 0;
+  char filename[200];
+  int restart = 0;
+  int* cv_map = NULL;
 
   if(!logical.eds) 
     fprintf(fplog, "Enabling experiment directed simulation\n");
@@ -158,61 +166,68 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
       plumed_error("Syntax is EDS CV RANGES.... or EDS CV CENTERS....or EDS CV CONSTANTS\n");
     }
 
+    int last_iw;
+    uno = -1;
     while(iw < nw) {
-      int update_period = 0;
-      if(!strcmp(word[iw++], "STRIDE"))
-	if(!sscanf(word[iw++], "%d", &update_period))
-	  plumed_error("Must specify STRIDE in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");	  
+      last_iw = iw;
+      if(!strcmp(word[iw], "STRIDE"))
+	if(!sscanf(word[++iw], "%d", &update_period))
+	  plumed_error("Could not read stride\n");	  
+	else
+	  iw++;
       
-      if(!strcmp(word[iw++], "SIMTEMP")) {
-	if(!sscanf(word[iw++], "%lf", &uno)){
+      if(!strcmp(word[iw], "SIMTEMP")) {
+	if(!sscanf(word[++iw], "%lf", &uno)){
 	  plumed_error("Must specify SIMTEMP in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 4313 CV LIST 1 3]\n");
 	}
-      } else {
-	plumed_error("Must specify SIMTEMP in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");
-      }
-      
-      int eds_seed = 0;
-      if(!strcmp(word[iw], "SEED")) {
-	if(!sscanf(word[++iw], "%d", &eds_seed)){
-	  plumed_error("Must use integer SEED\n");
-	}
 	iw++;
+      } else if(uno == -1) {
+	plumed_error("Must specify SIMTEMP in EDS as first argument [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");
       }
       
-      char filename[200];
+      if(!strcmp(word[iw], "SEED")) 
+	if(!sscanf(word[++iw], "%d", &eds_seed))
+	  plumed_error("Must use integer SEED\n");
+	else
+	  iw++;
+      
       if(!strcmp(word[iw], "FILENAME")) {
 	if(!sscanf(word[++iw], "%s", filename)){
 	  plumed_error("Filename invalid\n");
+	} else {
+	  iw++;
 	}
-	iw++;
       } else {
 	strcpy(filename, "EDS_OUT");
       }
       
-      int restart = 0;
-      char restart_filename[200];
       if(!strcmp(word[iw], "RESTART")) {
 	if(!sscanf(word[++iw], "%s", restart_filename)){
 	  plumed_error("Restart Filename invalid\n");
+	} else {
+	  iw++;
+	  restart = 1;
 	}
+      }
+      if(!strcmp(word[iw], "CV") && !strcmp(word[++iw], "LIST")) {
 	iw++;
-	restart = 1;
+	cv_map = (int*) malloc(sizeof(int) * nconst_max);
+	for(i = 0;iw < nw; iw++) {
+	  sscanf(word[iw], "%d", &icv);
+	  cv_map[i] = icv - 1;
+	  fprintf(fplog, 
+		  "EDS: Will use CV %d \n", 
+		  icv);
+	  i++;
+	}
+      }
+      if(last_iw == iw) {
+	fprintf(fplog,"WARNING: Ignoring invalid option %s\n", word[iw]);
+	iw++;
       }
     }
-    if(iw < nw - 2 && !strcmp(word[iw++], "CV") && !strcmp(word[iw++], "LIST")) {
-      int* cv_map = (int*) malloc(sizeof(int) * nconst_max);
-      for(i = 0;iw < nw; iw++) {
-	sscanf(word[iw], "%d", &icv);
-	cv_map[i] = icv - 1;
-	fprintf(fplog, 
-		"EDS: Will use CV %d \n", 
-		icv);
-	i++;
-      }
-    } else {
-	plumed_error("Must specify CV List in EDS as last argument [EDS 500 CV LIST 1 3]\n");
-    }
+    if(cv_map == NULL)
+      plumed_error("Must specify CV List in EDS as last argument [EDS 500 CV LIST 1 3]\n");
     cv_map = (int *) realloc(cv_map, sizeof(int) * i);
     eds_init(i, update_period, uno, eds_seed, 0, cv_map, (const char*) filename, &eds);   
     if(restart)
@@ -231,20 +246,23 @@ void PREFIX eds_read_restart(char* filename, FILE* fplog, t_eds* eds) {
     fprintf(fplog, "WARNING: Could not find restart file in EDS, skipping...\n");
   }
   int success = 1;
+  long long int temp;
+
+  fprintf(fplog, "READING IN EDS RESTART...");
   while(!feof(restart)) {
-    fprintf(fplog, "READING IN EDS RESTART:\n");
+    //read and skip step
+    success &= fscanf(restart, "%lld ", &temp);
     for(i = 0; i < eds->cv_number; i++) {
-      success &= fscanf(restart, "%lf", eds->current_coupling[i]);
-      fprintf(fplog, "%0.5f \n", eds->current_coupling[i]);
+      success &= fscanf(restart, "%lf", &(eds->current_coupling[i]));
     }
     for(i = 0; i < eds->cv_number; i++) {
-      success &= fscanf(restart, "%lf ", eds->coupling_accum[i]);    
-      fprintf(fplog, "%0.5f \n", eds->coupling_accum[i]);
+      success &= fscanf(restart, "%lf ", &(eds->coupling_accum[i]));    
     }
-    fprintf(fplog, "\nDONE\n");
     if(!success)
       plumed_error("Found incomplete line in EDS restart file");
   }
+
+  fprintf(fplog, "DONE\n");
 
 }
 
@@ -259,8 +277,10 @@ void PREFIX eds_free(t_eds* eds) {
   free(eds->current_coupling);
   free(eds->coupling_rate);
   free(eds->coupling_accum);
+  free(eds->output_filename);
   
   fclose(eds->output_file);
+  
 
 }
 
@@ -274,7 +294,7 @@ real PREFIX eds_engine(real* ss0, real* force,
   int i;  
 
 
-  if(eds->update_calls == 0) {
+  if(eds->update_calls == 0 && eds->update_period != 0) {
     for(i = 0; i < eds->cv_number; i++) {
       eds->max_coupling_rate[i] = eds->max_coupling_range[i] / (10 * eds->update_period);
     }
@@ -415,7 +435,10 @@ void PREFIX eds_dump(t_eds* eds) {
 
 void PREFIX eds_write(t_eds* eds, long long int step) {
 
-  if(eds->update_calls % eds->update_period == 0) {
+  if(eds->update_period > 0 && eds->update_calls % eds->update_period == 0) {
+
+    if(eds->output_file == NULL)
+      eds->output_file = fopen(eds->output_filename, "w");
     
     int i;
     

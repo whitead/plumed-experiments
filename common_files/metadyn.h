@@ -423,6 +423,7 @@ typedef struct s_t_eds {
   real*  coupling_accum; //accumation in coupling
   int*   cv_map;//map from CVs we're biasing and those we're not
   FILE*  output_file;//Output 
+  char*  output_filename;//Output filename
   real   simtemp;// simulation temperature
   int    seed;//random number seed
   int    cv_number;//number of CV's we're biasing
