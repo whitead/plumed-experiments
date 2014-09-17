@@ -157,48 +157,49 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
     if(eds.cv_number != 0) {
       plumed_error("Syntax is EDS CV RANGES.... or EDS CV CENTERS....or EDS CV CONSTANTS\n");
     }
-    
-    if(iw >= nw - 2 || strcmp(word[iw++], "STRIDE"))
-      plumed_error("Must specify STRIDE in EDS [EDS 500 CV LIST 1 3]\n");
-    int update_period;
-    if(!sscanf(word[iw++], "%d", &update_period)){
-      plumed_error("Must specify STRIDE in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");
-      
-    }
-    
-    if(iw >= nw - 2 || strcmp(word[iw++], "SIMTEMP"))
-      plumed_error("Must specify SIMTEMP in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");
-    if(!sscanf(word[iw++], "%lf", &uno)){
-      plumed_error("Must specify SIMTEMP in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 4313 CV LIST 1 3]\n");
-    }
-    
-    int eds_seed = 0;
-    if(!strcmp(word[iw], "SEED")) {
-      if(!sscanf(word[++iw], "%d", &eds_seed)){
-	plumed_error("Must use integer SEED\n");
-      }
-      iw++;
-    }
-    
-    char filename[200];
-    if(!strcmp(word[iw], "FILENAME")) {
-      if(!sscanf(word[++iw], "%s", filename)){
-	plumed_error("Filename invalid\n");
-      }
-      iw++;
-    } else {
-      strcpy(filename, "EDS_OUT");
-    }
 
-    int restart = 0;
-    char restart_filename[200];
-    if(!strcmp(word[iw], "RESTART")) {
-      if(!sscanf(word[++iw], "%s", restart_filename)){
-	plumed_error("Restart Filename invalid\n");
+    while(iw < nw) {
+      int update_period = 0;
+      if(!strcmp(word[iw++], "STRIDE"))
+	if(!sscanf(word[iw++], "%d", &update_period))
+	  plumed_error("Must specify STRIDE in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");	  
+      
+      if(!strcmp(word[iw++], "SIMTEMP")) {
+	if(!sscanf(word[iw++], "%lf", &uno)){
+	  plumed_error("Must specify SIMTEMP in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 4313 CV LIST 1 3]\n");
+	}
+      } else {
+	plumed_error("Must specify SIMTEMP in EDS [EDS STRIDE 500 SIMTEMP 300 SEED 431 CV LIST 1 3]\n");
       }
-      iw++;
-      restart = 1;
-    } 
+      
+      int eds_seed = 0;
+      if(!strcmp(word[iw], "SEED")) {
+	if(!sscanf(word[++iw], "%d", &eds_seed)){
+	  plumed_error("Must use integer SEED\n");
+	}
+	iw++;
+      }
+      
+      char filename[200];
+      if(!strcmp(word[iw], "FILENAME")) {
+	if(!sscanf(word[++iw], "%s", filename)){
+	  plumed_error("Filename invalid\n");
+	}
+	iw++;
+      } else {
+	strcpy(filename, "EDS_OUT");
+      }
+      
+      int restart = 0;
+      char restart_filename[200];
+      if(!strcmp(word[iw], "RESTART")) {
+	if(!sscanf(word[++iw], "%s", restart_filename)){
+	  plumed_error("Restart Filename invalid\n");
+	}
+	iw++;
+	restart = 1;
+      }
+    }
     if(iw < nw - 2 && !strcmp(word[iw++], "CV") && !strcmp(word[iw++], "LIST")) {
       int* cv_map = (int*) malloc(sizeof(int) * nconst_max);
       for(i = 0;iw < nw; iw++) {
@@ -209,13 +210,13 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
 		icv);
 	i++;
       }
-      cv_map = (int *) realloc(cv_map, sizeof(int) * i);
-      eds_init(i, update_period, uno, eds_seed, 0, cv_map, (const char*) filename, &eds);   
-      if(restart)
-	eds_read_restart(restart_filename, fplog, &eds);
     } else {
-      plumed_error("Must specify CV List in EDS [EDS 500 CV LIST 1 3]\n");
+	plumed_error("Must specify CV List in EDS as last argument [EDS 500 CV LIST 1 3]\n");
     }
+    cv_map = (int *) realloc(cv_map, sizeof(int) * i);
+    eds_init(i, update_period, uno, eds_seed, 0, cv_map, (const char*) filename, &eds);   
+    if(restart)
+      eds_read_restart(restart_filename, fplog, &eds);
   }
 }
 
