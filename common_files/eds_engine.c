@@ -244,6 +244,7 @@ void PREFIX eds_read_restart(char* filename, FILE* fplog, t_eds* eds) {
   if(restart == NULL) {
     //just skip with warning, since it might be included for future restarts
     fprintf(fplog, "WARNING: Could not find restart file in EDS, skipping...\n");
+    return;
   }
   int success = 1;
   long long int temp;
