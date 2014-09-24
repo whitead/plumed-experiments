@@ -263,7 +263,8 @@ class TestPlumedGrid(unittest.TestCase):
                1.0   1.0   1.0
             ''')[1:])
         map = build_EM_map('test.gro')
-        
+        map.gaussian_blur(3)
+        map.gaussian_blur([5,5,5])
                         
     
 

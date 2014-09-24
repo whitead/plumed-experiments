@@ -285,22 +285,16 @@ class Grid(object):
 
     def __eq__(self, other):
         if(self.dims != other.dims):
-            print self.dims, other.dims
             return False
         if(self.types != other.types):
-            print self.types, other.types
             return False
         if(np.all(self.grid_points != other.grid_points)):
-            print self.grid_points, other.grid_points
             return False
         if(self.min != other.min):
-            print self.min, other.min
             return False
         if(self.max != other.max):
-            print self.max, other.max
             return False
         if(np.all(np.abs(self.pot - other.pot) > 0.0001)):
-            print self.pot, other.pot
             return False
         return True
 
@@ -628,8 +622,6 @@ class Grid(object):
         Z = np.exp(-self.pot)
         grids.reverse()
         for g in grids:
-            print np.shape(g)
-            print np.shape(Z)
             Z = simps(Z, g)
         self.pot -= np.log(Z)
 
@@ -702,8 +694,11 @@ class Grid(object):
         self.normalize()
         self.set_bin_number(old_bins)
 
-    def apply_gaussian_blur(self, radius):
-        pass
+    def gaussian_blur(self, radius):
+        from scipy.ndimage.filters import gaussian_filter
+        if(type(radius) == type(1.0) or type(radius) == type(1)):
+            radius = [radius for x in range(self.dims)]
+            self.pot = gaussian_filter(self.pot, [r / dx for r,dx in zip(radius, self.dx)])
 
 def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25]):
 
@@ -714,7 +709,10 @@ def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25]):
         return None
 
 
-    u = Universe(structure_file_name, traj_file)
+    if(traj_file is None):
+        u = Universe(structure_file_name)
+    else:
+        u = Universe(structure_file_name, traj_file)
     minv = [1000, 1000, 1000]
     maxv = [-1000, -1000, -1000]
     for ts in u.trajectory:
