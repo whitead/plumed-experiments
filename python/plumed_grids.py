@@ -617,7 +617,7 @@ class Grid(object):
 
     def normalize(self):
         #make sure we don't have gigantic numbers to start
-        self.pot -= np.max(self.pot)
+        self.pot -= np.min(self.pot)
         grids = [np.arange(min, max + 0.00000001, dx) for min,max,dx in zip(self.min, self.max, self.dx)]        
         Z = np.exp(-self.pot)
         grids.reverse()
