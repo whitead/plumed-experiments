@@ -407,13 +407,23 @@ class Grid(object):
         self.pot[np.where(self.pot == 0)] = np.min(g.pot)
 
 
-    def rescale(self, scale):
-        """Rescale the mesh grid, stretching it out or shrinking it down        
+    def stretch(self, scale):
+        """Change the mesh grid, stretching it out or shrinking it down        
         """
         assert len(scale) == self.ncv
         length_diff = [(y - x) * (s - 1) for x,y,s in zip(self.min, self.max, scale)]
+        print length_diff
         self.min = [x - l / 2 for x,l in zip(self.min, length_diff)]
         self.max = [x + l / 2 for x,l in zip(self.max, length_diff)]
+
+    def rescale(self, scale):
+        """Simply rescale the mesh grid
+        """
+        assert len(scale) == self.ncv
+        self.min = [x*s for x,s in zip(self.min, scale)]
+        self.max = [x*s for x,s in zip(self.max, scale)]
+        
+        
 
     def _wrap(self, x, i):
         return x - (self.max[i] - self.min[i]) * floor((x - self.min[i]) / (self.max[i] - self.min[i]))
