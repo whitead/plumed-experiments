@@ -223,6 +223,22 @@ class TestPlumedGrid(unittest.TestCase):
         self.assertEqual(g.nbins[0], 5)
         self.assertEqual(g.dx[0], 2)
 
+    def test_normalize(self):
+        g = Grid()
+        g.add_cv('Distance', 2.5,7.5,10)
+        g.add_cv('Distance', 0,10,10)
+        g.add_cv('Distance', -3,5,10)
+        g.pot = np.random.rand(*np.shape(g.pot))
+
+        g.normalize()
+        grids = [np.arange(min, max + 0.00000001, dx) for min,max,dx in zip(g.min, g.max, g.dx)]        
+        Z = np.exp(-g.pot)
+        grids.reverse()
+        for g in grids:
+            Z = simps(Z, g)
+        self.assertTrue((Z - 1.0)**2 < 0.0001)
+
+
 
     def test_stretch(self):
         g = Grid()

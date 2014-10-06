@@ -369,10 +369,11 @@ class Grid(object):
         else:
             self.pot = np.resize(self.pot, self.grid_points + (int(grid_point_number),))
 
-    def add_margin(self, percent,pretty=True):
-        """Add a margin around the potential without affecting bin number""" 
-        assert len(percent) == self.ncv
-        length_diff = [(y - x) * (s) for x,y,s in zip(self.min, self.max, percent)]
+    def add_margin(self, scale,pretty=True):
+        """Add a margin around the potential without affecting bin number. Scale should be > 1""" 
+        assert len(scale) == self.ncv
+        assert scale > 1
+        length_diff = [(y - x) * (s) for x,y,s in zip(self.min, self.max, scale)]
         new_min = [x - l / 2 for x,l in zip(self.min, length_diff)]
         new_max = [x + l / 2 for x,l in zip(self.max, length_diff)]
         if(pretty):
@@ -628,12 +629,14 @@ class Grid(object):
     def normalize(self):
         #make sure we don't have gigantic numbers to start
         self.pot -= np.min(self.pot)
-        grids = [np.arange(min, max + 0.00000001, dx) for min,max,dx in zip(self.min, self.max, self.dx)]        
-        Z = np.exp(-self.pot)
+        grids = [np.arange(min, max + dx/2, dx) for min,max,dx in zip(self.min, self.max, self.dx)]        
+        Z = np.exp(-self.pot)        
         grids.reverse()
         for g in grids:
             Z = simps(Z, g)
-        self.pot -= np.log(Z)
+        self.pot += np.log(Z)
+
+
 
     def integrate_region(self, region_function):
         """
