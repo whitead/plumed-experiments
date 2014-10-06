@@ -629,13 +629,15 @@ class Grid(object):
     def normalize(self):
         #make sure we don't have gigantic numbers to start
         self.pot -= np.min(self.pot)
-        grids = [np.arange(min, max + dx/2, dx) for min,max,dx in zip(self.min, self.max, self.dx)]        
-        Z = np.exp(-self.pot)        
+        self.pot -= np.log(self.integrate_all())
+
+    def integrate_all(self):
+        grids = [np.arange(min, max + dx/2, dx) for min,max,dx in zip(self.min, self.max, self.dx)]
+        Z = np.exp(-self.pot)
         grids.reverse()
         for g in grids:
             Z = simps(Z, g)
-        self.pot += np.log(Z)
-
+        return Z
 
 
     def integrate_region(self, region_function):
