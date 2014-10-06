@@ -224,12 +224,12 @@ class TestPlumedGrid(unittest.TestCase):
         self.assertEqual(g.dx[0], 2)
 
 
-    def test_rescale(self):
+    def test_stretch(self):
         g = Grid()
         g.add_cv('Distance', 2.5,7.5,10)
         g.add_cv('Distance', 0,10,10)
 
-        g.rescale([2,1])
+        g.stretch([2,1])
         
         self.assertEqual(g.min[0], 0)
         self.assertEqual(g.max[0], 10)
@@ -266,6 +266,16 @@ class TestPlumedGrid(unittest.TestCase):
         map.gaussian_blur(3)
         map.gaussian_blur([5,5,5])
                         
+    def test_EM_map_align_single(self):
+        from MDAnalysis.tests.datafiles import PSF, DCD, PDB_small        
+        map = build_EM_map(PSF, DCD, align_ref=PDB_small)
+
+
+    def test_EM_map_align_multiple(self):
+        from MDAnalysis.tests.datafiles import PSF, DCD, PDB_small        
+        map = build_EM_map(PSF, PDB_small, align_ref=(PSF, DCD))
+    
+
     
 
 if __name__ == '__main__':

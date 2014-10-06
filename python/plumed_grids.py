@@ -710,7 +710,12 @@ class Grid(object):
             radius = [radius for x in range(self.dims)]
             self.pot = gaussian_filter(self.pot, [r / dx for r,dx in zip(radius, self.dx)])
 
-def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25]):
+def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], align_ref=None):
+    """Create an EM map from the given file, which can also have a
+    trajectory. The align_ref is a file to optionally align the EM
+    map. If align_ref is a 2-tuple, then it's assumed the first is a
+    structure file and the second is a trajectory.
+    """
 
     try:
         from MDAnalysis import Universe
@@ -723,6 +728,24 @@ def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25]):
         u = Universe(structure_file_name)
     else:
         u = Universe(structure_file_name, traj_file)
+
+    #align
+    if(align_ref is not None):
+        from MDAnalysis.analysis.align import alignto, rms_fit_trj
+        if(type(align_ref) == type( () )):
+            ref = Universe(*align_ref)
+        else:
+            ref = Universe(align_ref)
+        if(traj_file is None):
+            alignto(u, ref, mass_weighted=True, select="protein and name CA")
+            u.atoms.write('temp.pdb')
+            #have to recalculate atom indices. I don't know of a better way. 
+            u = Universe('temp.pdb')
+        else:
+            rms_fit_trj(u, ref, filename="rmsfit.dcd")
+            u = Universe(structure_file_name, "rmsfit.dcd")
+        
+
     minv = [1000, 1000, 1000]
     maxv = [-1000, -1000, -1000]
     for ts in u.trajectory:
