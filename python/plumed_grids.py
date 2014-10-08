@@ -715,6 +715,7 @@ class Grid(object):
             radius = [radius for x in range(self.dims)]
             self.pot = gaussian_filter(self.pot, [r / dx for r,dx in zip(radius, self.dx)])
 
+<<<<<<< Updated upstream
 
     def write_situs(self, output_file="grid.situs"):
         #Check to make sure this is a grid file
@@ -730,11 +731,12 @@ class Grid(object):
                 
     
 
-def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], force_cube=False, align_ref=None, weights_file="EM_WEIGHTS"):
+def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], force_cube=False, align_ref=None, weights_file="EM_WEIGHTS", write_alignment=None):
     """Create an EM map from the given file, which can also have a
     trajectory. The align_ref is a file to optionally align the EM
     map. If align_ref is a 2-tuple, then it's assumed the first is a
-    structure file and the second is a trajectory.
+    structure file and the second is a trajectory. Pass a string to
+    write_alignment to have the method write out the structure after alignment
     """
 
     try:
@@ -764,6 +766,8 @@ def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], force
         else:
             rms_fit_trj(u, ref, filename="rmsfit.dcd")
             u = Universe(structure_file_name, "rmsfit.dcd")
+        if(write_alignment is not None):
+            u.atoms.write(write_alignment)
         
 
     minv = [1000, 1000, 1000]
