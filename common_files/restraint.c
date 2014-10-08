@@ -55,6 +55,8 @@ int PREFIX independent_stash_cv(int i_c, int atom_index){
       colvar.natoms[i_c] = 1;
       independent_cv_cache_atom = colvar.cvatoms[i_c][0];
       colvar.cvatoms[i_c][0] = colvar.cvatoms[i_c][atom_index];
+      if(logical.b_em_weights)
+	hills.wwr_em_scale = colvar.em_weights[i_c];
       return 1;
     }
     break;
@@ -109,6 +111,8 @@ int PREFIX independent_pop_cv(int i_c, int atom_index){
     if(colvar.natoms[i_c] == 1) {
       colvar.natoms[i_c] = independent_cv_cache_natoms;
       colvar.cvatoms[i_c][atom_index] = independent_cv_cache_atom;
+      if(logical.b_em_weights)
+	hills.wwr_em_scale = 1.0;
       return 1;
     }
     break;

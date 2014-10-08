@@ -284,6 +284,7 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
 
   if(hills.max_height>0.0) hills.wwr=hills.rate*(colvar.it-last_hill_at_this_step)*mtd_data->dt;
 
+  //ADW>
   //store and check supremum if we're doing global tempering
   if(logical.global_tempering) {
     hills.sup_ww = fmax(hills.sup_ww, hills.Vhills);
@@ -373,6 +374,10 @@ void PREFIX hills_add(struct mtd_data_s *mtd_data)
   if(logical.global_tempering) {
     hills.sum_ww += this_ww  * sqrt(2 * M_PI); // add extra 2 * sqrt(pi) because the 
     //gaussins are unnormalized. The variance correction is included in the volume term
+  }
+
+  if(logical.b_em_weights) {
+    this_ww *= hills.wwr_em_scale;
   }
 
   //<ADW

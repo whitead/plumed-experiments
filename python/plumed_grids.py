@@ -715,7 +715,7 @@ class Grid(object):
             radius = [radius for x in range(self.dims)]
             self.pot = gaussian_filter(self.pot, [r / dx for r,dx in zip(radius, self.dx)])
 
-def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], align_ref=None):
+def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], align_ref=None, weights_file="EM_WEIGHTS"):
     """Create an EM map from the given file, which can also have a
     trajectory. The align_ref is a file to optionally align the EM
     map. If align_ref is a 2-tuple, then it's assumed the first is a
@@ -762,16 +762,24 @@ def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], align
     g = Grid()
     for mi,ni,bi in zip(minv, maxv, bins):
         g.add_cv('Absolute position', mi, ni, bi, periodic=False)
+
+    weight_output = open(weights_file, 'w')
+    weight_output.write('{}\n'.format(len(u.atoms)))
+
     for ts in u.trajectory:
         for a in u.atoms:
             #proportional to atomic number
             try:
-                atomic_number = elements[a.type]
+                atomic_number = elements[a.name[0]]                
+                weight_output.write('{}\n'.format(atomic_number))
             except KeyError:
-                print "Could not determine atomic number for atom {}\n!".format(a.type)
+                print "Could not determine atomic number for atom {}\n!".format(a)
                 return None
             g.add_value(a.pos, a.number)
-    g.normalize()
+
+    weight_output.close()
+
+    g.normalize()    
 
     return g
 

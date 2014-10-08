@@ -285,11 +285,13 @@ class TestPlumedGrid(unittest.TestCase):
     def test_EM_map_align_single(self):
         from MDAnalysis.tests.datafiles import PSF, DCD, PDB_small        
         map = build_EM_map(PSF, DCD, align_ref=PDB_small)
+        self.assertTrue(map is not None)
 
 
     def test_EM_map_align_multiple(self):
         from MDAnalysis.tests.datafiles import PSF, DCD, PDB_small        
         map = build_EM_map(PSF, PDB_small, align_ref=(PSF, DCD))
+        self.assertTrue(map is not None)
     
 
     

@@ -381,6 +381,7 @@ struct logical_s
   //ADW>
   int    target_distribution; //do target distribution metadynamisc
   int    global_tempering;//only turn on tempering when a certin max hill height has been met
+  int  b_em_weights; //Do EM weighting for distance colvar
   int    eds; //do experiment directed simulation
   // <ADW
   int    lreflect[nconst_max];
@@ -504,6 +505,7 @@ struct colvar_s
   int    b_treat_independent  [nconst_max];          //treat the CV's as independent?
   int   b_scale_cn [nconst_max];
   real   cn_scale [nconst_max];
+  real  *em_weights; //the atomic numbers used for EM fitting
   real   stoch_sample;     //If < 1, add hills stochastically
   int   stoch_sample_seed;     //Seed for stochastic sampling   
   //<ADW
@@ -553,6 +555,7 @@ struct colvar_s
 struct hills_s
 {
   real     wwr;						// Hill height
+  real     wwr_em_scale;				// Hill height re-scaling, used only for EM-fitting. Default is 1
   real     rate;					// Hill deposition rate
   real     max_height;    				// Maximum height of added hills (0 means NO maximum)
   int      max_stride;    				// Maximum stride between hills (0 means NO maximum)
