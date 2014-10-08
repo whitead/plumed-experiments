@@ -348,7 +348,7 @@ real PREFIX eds_engine(real* ss0, real* force,
 
   //reduce all the flags 
   if(eds->b_equilibration && b_finished_equil_flag) {
-    eds->b_equilibration = false;
+    eds->b_equilibration = 0;
     eds->update_calls = 0;
   }
 
@@ -390,7 +390,7 @@ real PREFIX eds_engine(real* ss0, real* force,
 
     
     eds->update_calls = 0;
-    eds->b_equilibration = true; //back to equilibration now
+    eds->b_equilibration = 1; //back to equilibration now
   } //close if update if
 
   return bias_energy;
