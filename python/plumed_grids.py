@@ -715,7 +715,22 @@ class Grid(object):
             radius = [radius for x in range(self.dims)]
             self.pot = gaussian_filter(self.pot, [r / dx for r,dx in zip(radius, self.dx)])
 
-def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], align_ref=None, weights_file="EM_WEIGHTS"):
+
+    def write_situs(self, output_file="grid.situs"):
+        #Check to make sure this is a grid file
+        assert self.ncv == 3, "Not a 3D grid"
+        for x in self.types:
+            assert x == 32, "One dimension is not an absolute position"
+        assert (self.dx[0] - self.dx[1])**2 < 10e-9 * self.dx[0] and (self.dx[0] - self.dx[2])**2 < 10e-9 * self.dx[0], "Must have same bin width in all dimensions"
+            
+        #write header
+        with open(output_file, 'w') as f:
+            f.write('{} {} {} {} {} {} {}\n\n'.format(*((self.dx[0],) + tuple(self.min) + self.grid_points)))
+            self._enumerate_grid(lambda x: f.write('{: 10.8f}\n'.format(self.pot[tuple(x)])))
+                
+    
+
+def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], force_cube=False, align_ref=None, weights_file="EM_WEIGHTS"):
     """Create an EM map from the given file, which can also have a
     trajectory. The align_ref is a file to optionally align the EM
     map. If align_ref is a 2-tuple, then it's assumed the first is a
@@ -758,6 +773,11 @@ def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], align
         for a in u.atoms:
             minv = [min(x,y) for x,y in zip(minv,a.pos)]
             maxv = [max(x,y) for x,y in zip(maxv,a.pos)]
+    if(force_cube):
+        minv = [min(minv) for x in range(3)]
+        maxv = [max(maxv) for x in range(3)]
+                
+            
     #now build histogram
     g = Grid()
     for mi,ni,bi in zip(minv, maxv, bins):

@@ -282,6 +282,21 @@ class TestPlumedGrid(unittest.TestCase):
         map.gaussian_blur(3)
         map.gaussian_blur([5,5,5])
                         
+    def test_situs(self):
+        with open('test.gro', 'w') as f:
+            f.write(textwrap.dedent('''
+            TEST
+              3
+                1SOL     OW   1   0.230    0.628   0.113
+                1SOL    HW1   2   0.138    0.628   0.150
+                1SOL    HW2   3   0.231    0.589   0.021
+               1.0   1.0   1.0
+            ''')[1:])
+        map = build_EM_map('test.gro', force_cube=True)
+        map.gaussian_blur(0.05)
+        map.write_situs('test.situs')
+
+
     def test_EM_map_align_single(self):
         from MDAnalysis.tests.datafiles import PSF, DCD, PDB_small        
         map = build_EM_map(PSF, DCD, align_ref=PDB_small)
