@@ -715,8 +715,6 @@ class Grid(object):
             radius = [radius for x in range(self.dims)]
             self.pot = gaussian_filter(self.pot, [r / dx for r,dx in zip(radius, self.dx)])
 
-<<<<<<< Updated upstream
-
     def write_situs(self, output_file="grid.situs"):
         #Check to make sure this is a grid file
         assert self.ncv == 3, "Not a 3D grid"
