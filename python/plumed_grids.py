@@ -546,19 +546,29 @@ class Grid(object):
         self.pot = zoom(self.pot, zoom_factor, prefilter=True, mode=mode)
         self.meshgrid = None
 
-    def _enumerate_grid(self, fxn, dim=None, indices=[]):
-        """Apply fxn over the grid. end_fxn will be called on only edges
+    def _enumerate_grid(self, fxn, dim=None, indices=[], reverse=False):
+        """Apply fxn over the grid. end_fxn will be called on only
+        edges. Dimension 0 changes slowest and dimension N changes
+        fastest. This may be reversed by passing in the reverse flag.
+
         """
         if(dim is None):
-            dim = self.ncv - 1
+            dim = self.ncv - 1        
+        effective_dim = dim
+        if(reverse):
+            effective_dim = self.ncv - dim - 1
         if(dim > 0):
-            for i in range(self.grid_points[dim]):
+            for i in range(self.grid_points[effective_dim]):
                 self._enumerate_grid(fxn, 
                                      dim - 1, 
-                                     Grid._prepend_emit(indices, i))
+                                     Grid._prepend_emit(indices, i),
+                                     reverse=reverse)
         else:
-            for i in range(self.grid_points[dim]):
-                fxn(Grid._prepend_emit(indices, i))
+            for i in range(self.grid_points[effective_dim]):
+                if(reverse):
+                    fxn(Grid._prepend_emit(indices, i)[::-1])
+                else:
+                    fxn(Grid._prepend_emit(indices, i))
 
 
 
@@ -719,7 +729,6 @@ class Grid(object):
             radius = [radius for x in range(self.dims)]
             self.pot = gaussian_filter(self.pot, [r / dx for r,dx in zip(radius, self.dx)])
 
-
     def write_situs(self, output_file="grid.situs"):
         #Check to make sure this is a grid file
         assert self.ncv == 3, "Not a 3D grid"
@@ -734,11 +743,15 @@ class Grid(object):
                 
     
 
-def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], force_cube=False, align_ref=None, weights_file="EM_WEIGHTS"):
+def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], force_cube=False, margin=10, align_ref=None, weights_file="EM_WEIGHTS", write_alignment=None):
     """Create an EM map from the given file, which can also have a
     trajectory. The align_ref is a file to optionally align the EM
     map. If align_ref is a 2-tuple, then it's assumed the first is a
-    structure file and the second is a trajectory.
+    structure file and the second is a trajectory. Pass a string to
+    write_alignment to have the method write out the structure after
+    alignment. Margin is by default 10 and is added in each dimension
+    (so 20 extra angstroms are added).
+
     """
 
     try:
@@ -768,6 +781,8 @@ def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], force
         else:
             rms_fit_trj(u, ref, filename="rmsfit.dcd")
             u = Universe(structure_file_name, "rmsfit.dcd")
+        if(write_alignment is not None):
+            u.atoms.write(write_alignment)
         
 
     minv = [1000, 1000, 1000]
@@ -780,7 +795,11 @@ def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], force
     if(force_cube):
         minv = [min(minv) for x in range(3)]
         maxv = [max(maxv) for x in range(3)]
-                
+
+    #add margin
+    minv = [x - margin for x in minv]
+    maxv = [x + margin for x in maxv]
+
             
     #now build histogram
     g = Grid()
