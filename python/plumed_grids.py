@@ -633,6 +633,7 @@ class Grid(object):
 
     def integrate_all(self):
         grids = [np.arange(min, max + dx/2, dx) for min,max,dx in zip(self.min, self.max, self.dx)]
+        grids = [g[:-1] if p else g for g,p in zip(grids, self.periodic) ]
         Z = np.exp(-self.pot)
         grids.reverse()
         for g in grids:
@@ -648,6 +649,9 @@ class Grid(object):
         a single point (N numbers per N dimensions). Simpson's Rule is 
         used for integration.
         """
+        
+        raise NotImplementedError("Grid is not correct, does not differentiate between periodic and non-periodic systems")
+
         assert NDITER, "numpy nditer unavailable"
         #make sure we don't have gigantic numbers to start
         self.pot -= np.max(self.pot)
