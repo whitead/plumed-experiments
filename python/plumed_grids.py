@@ -642,8 +642,7 @@ class Grid(object):
         self.pot += np.log(self.integrate_all())
 
     def integrate_all(self):
-        grids = [np.arange(min, max + dx/2, dx) for min,max,dx in zip(self.min, self.max, self.dx)]
-        grids = [g[:-1] if p else g for g,p in zip(grids, self.periodic) ]
+        grids = [np.arange(min, max  if p else max + dx / 2, dx) for min,max,dx,p in zip(self.min, self.max, self.dx, self.periodic)]
         Z = np.exp(-self.pot)
         grids.reverse()
         for g in grids:
@@ -670,13 +669,13 @@ class Grid(object):
 
         if(self.meshgrid is None):
 #            self.meshgrid = np.meshgrid(*[np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)], indexing='ij')
-            self.meshgrid = np.meshgrid(*[np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)])
+            self.meshgrid = np.meshgrid(*[np.arange(min, max  if p else max + dx / 2, dx) for min,max,dx,p in zip(self.min, self.max, self.dx, self.periodic)])
         for x in np.nditer(self.meshgrid):
             indexs = self.np_to_index(x)
             if(not region_function(x)):
                 Z[tuple(indexs)] = 0
 
-        grids = [np.arange(min, max, dx) for min,max,dx in zip(self.min, self.max, self.dx)]        
+        grids = [np.arange(min, max  if p else max + dx / 2, dx) for min,max,dx,p in zip(self.min, self.max, self.dx, self.periodic)]
         grids.reverse()
         for g in grids:
             Z = simps(Z,g)
