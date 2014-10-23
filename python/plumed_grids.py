@@ -659,8 +659,6 @@ class Grid(object):
         used for integration.
         """
         
-        raise NotImplementedError("Grid is not correct, does not differentiate between periodic and non-periodic systems")
-
         assert NDITER, "numpy nditer unavailable"
         #make sure we don't have gigantic numbers to start
         self.pot -= np.max(self.pot)
