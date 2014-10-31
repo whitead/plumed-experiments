@@ -581,7 +581,7 @@ class Grid(object):
             output.write('{: 10.8f} '.format(j * self.dx[i] + self.min[i]))        
         output.write('{: 10.8f}\n'.format(self.pot[tuple(indices)]))
 
-    def plot_2d(self, filename, cmap='jet', resolution=None, axis=(1,0), hold=False):
+    def plot_2d(self, filename, cmap='jet', resolution=None, axis=(1,0), hold=False, vrange=None):
         assert self.dims >= 2
         import matplotlib.pyplot as plt
         old_bins = self.nbins
@@ -593,10 +593,16 @@ class Grid(object):
             data = self.pot
         if(resolution is not None):
             self.set_bin_number([resolution if x in axis else self.nbins[x] for x in range(self.dims)])
+        
+        vmin = np.min(data)
+        vmax = np.max(data)
+        if(vrange is not None):
+            vmin = vrange[0]
+            vmax = vrange[1]
 
         if(not hold):
             plt.figure()
-        plt.imshow(np.swapaxes(data, 0, axis[0]), interpolation='nearest', cmap=cmap, extent=[self.min[axis[0]], self.max[axis[0]],self.max[axis[1]],self.min[axis[1]]])
+        plt.imshow(np.swapaxes(data, 0, axis[0]), interpolation='nearest', cmap=cmap, extent=[self.min[axis[0]], self.max[axis[0]],self.max[axis[1]],self.min[axis[1]]], vmin=vmin, vmax=vmax)
         if(resolution is not None):
             self.set_bin_number(old_bins)
         plt.colorbar()
@@ -711,6 +717,7 @@ class Grid(object):
             gray_scale = 1 - gray_scale
             
         gray_scale = gray_scale.astype(np.float64)
+        gray_scale = np.rot90(gray_scale)
         #too_small = exp(-10)
         #gray_scale[np.where(gray_scale < too_small)] = too_small        
         #self.pot += np.log(gray_scale)
@@ -771,12 +778,12 @@ def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], force
         else:
             ref = Universe(align_ref)
         if(traj_file is None):
-            alignto(u, ref, mass_weighted=True, select="protein and name CA")
+            print alignto(u, ref, mass_weighted=True, select="protein and name CA")
             u.atoms.write('temp.pdb')
             #have to recalculate atom indices. I don't know of a better way. 
             u = Universe('temp.pdb')
         else:
-            rms_fit_trj(u, ref, filename="rmsfit.dcd")
+            print rms_fit_trj(u, ref, filename="rmsfit.dcd")
             u = Universe(structure_file_name, "rmsfit.dcd")
         if(write_alignment is not None):
             u.atoms.write(write_alignment)
