@@ -385,7 +385,7 @@ class Grid(object):
 
         
             
-    def set_min(self,min):
+    def set_min(self,min,adjust_zero=True):
         """Change the mins. Fills with previous boundaries if extending, otherwise crops"""
         g = self.clone()
         self._clear()
@@ -393,11 +393,12 @@ class Grid(object):
             self.add_cv(t,m,x,b,p)
         self.add(g)
         #set values to g minimum
-        self.pot[np.where(self.pot == 0)] = np.min(g.pot)
+        if(adjust_zero):
+            self.pot[np.where(self.pot == 0)] = np.max(g.pot)
 
 
 
-    def set_max(self,max):
+    def set_max(self,max,adjust_zero=True):
         """Change the maxs. Fills with previous boundaries if extending, otherwise crops"""
         g = self.clone()
         self._clear()
@@ -405,7 +406,8 @@ class Grid(object):
             self.add_cv(t,m,x,b,p)
         self.add(g)
         #set values to g minimum
-        self.pot[np.where(self.pot == 0)] = np.min(g.pot)
+        if(adjust_zero):
+            self.pot[np.where(self.pot == 0)] = np.max(g.pot)
 
 
     def stretch(self, scale):
@@ -747,7 +749,7 @@ class Grid(object):
                 
     
 
-def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], force_cube=False, margin=10, align_ref=None, weights_file="EM_WEIGHTS", write_alignment=None):
+def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], force_cube=False, margin=10, align_ref=None, weights_file="EM_WEIGHTS", write_alignment=None, stop_at_frame=-1):
     """Create an EM map from the given file, which can also have a
     trajectory. The align_ref is a file to optionally align the EM
     map. If align_ref is a 2-tuple, then it's assumed the first is a
@@ -813,6 +815,7 @@ def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], force
     weight_output = open(weights_file, 'w')
     weight_output.write('{}\n'.format(len(u.atoms)))
 
+    i = 0
     for ts in u.trajectory:
         for a in u.atoms:
             #proportional to atomic number
@@ -823,6 +826,9 @@ def build_EM_map(structure_file_name, traj_file = None, bins=[25, 25, 25], force
                 print "Could not determine atomic number for atom {}\n!".format(a)
                 return None
             g.add_value(a.pos, a.number)
+        i += 1
+        if(i == stop_at_frame):
+            break
 
     weight_output.close()
 
