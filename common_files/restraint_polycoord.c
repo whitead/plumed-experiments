@@ -136,7 +136,7 @@ void PREFIX polycoord_restraint_nlist(int i_c, struct mtd_data_s *mtd_data)
         mod_rij  = sqrt(rij[0]*rij[0]+rij[1]*rij[1]+rij[2]*rij[2]);
       };
       rdist = (mod_rij-d_0)/r_0;
-      moment = pow(rdist, colvar.moment[i_c]);
+      moment = colvar.moment[i_c];
       /* analytic limit of the switching function */
       if(rdist<=0.){
 	ncoord+=1;
@@ -145,9 +145,9 @@ void PREFIX polycoord_restraint_nlist(int i_c, struct mtd_data_s *mtd_data)
        dfunc=0.;
       }else{
 	func = 2 * rdist * rdist * rdist - 3 * rdist * rdist + 1;
-        ncoord += moment * func;
+        ncoord += pow(func, moment+1);
         dfunc = (6 * rdist * rdist - 6 * rdist) / r_0;
-	dfunc = (colvar.moment[i_c] * moment * func / rdist + moment * dfunc) / mod_rij;	
+	dfunc = ((moment+1) * pow(func, moment) * dfunc) / mod_rij / r_0;	
       }
       for(ix=0;ix<3;ix++) {
         colvar.myder[i_c][i][ix] += colvar.cn_scale[i_c] * dfunc*rij[ix];
@@ -186,18 +186,18 @@ void PREFIX polycoord_restraint_no_nlist(int i_c, struct mtd_data_s *mtd_data)
         mod_rij  = sqrt(rij[0]*rij[0]+rij[1]*rij[1]+rij[2]*rij[2]);
       };
       rdist = (mod_rij-d_0)/r_0;
-      moment = pow(rdist, colvar.moment[i_c]);
+      moment =colvar.moment[i_c];
       /* analytic limit of the switching function */
       if(rdist<=0.){
-	ncoord+=1;;
+	ncoord+=1;
 	dfunc=0;
       }else if(rdist>1){
        dfunc=0.;
       }else{
 	func = 2 * rdist * rdist * rdist - 3 * rdist * rdist + 1;
-        ncoord += moment * func;
+        ncoord += pow(func, moment+1);
         dfunc = (6 * rdist * rdist - 6 * rdist) / r_0;
-	dfunc = (colvar.moment[i_c] * moment * func / rdist + moment * dfunc) / mod_rij;	
+	dfunc = ((moment+1) * pow(func, moment) * dfunc) / mod_rij / r_0;	
       }
       for(ix=0;ix<3;ix++) {
         colvar.myder[i_c][i][ix] += colvar.cn_scale[i_c] * dfunc*rij[ix];
@@ -286,7 +286,7 @@ int PREFIX read_polycoord(char **word, int count, t_plumed_input *input, FILE *f
 
   colvar.r_0[count]      = (real) r_0;
   colvar.d_0[count]      = (real) d_0;
-  colvar.type_s[count]   = 3;
+  colvar.type_s[count]   = 56;
   colvar.moment[count]   = moment;
 
   fprintf(fplog, "%1i-POLYCOORDINATION NUMBER OF (1st SET: %i ATOMS) WRT (2nd SET: %i ATOMS); ", count+1, colvar.list[count][0], colvar.list[count][1]);

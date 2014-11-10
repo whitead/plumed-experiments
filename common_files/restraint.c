@@ -301,6 +301,9 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
       case 52: adf_restraint(i_c, 1, mtd_data); break;                  // DISCRITIZED ANGLE DISTRIBUTION FUNCTION 
       case 53: msd_restraint(i_c,  mtd_data); break;    	
       case 55: sprint_restraint(i_c, mtd_data); break;                  // SPRINT TOPOLOGICAL CV
+	//ADW>
+      case 56: polycoord_restraint(i_c, mtd_data); break;               // Polynomial coordination number
+	//<ADW
       }
       
 #ifdef PATHREF_FINDIFF
@@ -1137,6 +1140,10 @@ real PREFIX constraint_engine(real tstep0){
                   case 49: histogram_restraint(i_c, &mtd_data); break;               // HISTOGRAM CV
                   case 52: adf_restraint(i_c, 1, &mtd_data); break;                  // DISCRITIZED ANGLE DISTRIBUTION FUNCTION
                   case 55: sprint_restraint(i_c, &mtd_data); break;                   // SPRINT TOPOLOGICAL CV
+		  //ADW>
+	          case 56: polycoord_restraint(i_c, &mtd_data); break;               // Polynomial coordination number
+		 //<ADW
+
               }
 
               mtd_data.pos=hack_pos1;  
