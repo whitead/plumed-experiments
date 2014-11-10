@@ -1412,6 +1412,9 @@ void eds_init(int cv_number, real update_period,
  int  read_dist          (char **word,int count,t_plumed_input *input,           FILE *fplog);
  int  read_mindist       (char **word,int count,t_plumed_input *input,           FILE *fplog); 
  int  read_coord         (char **word,int count,t_plumed_input *input,           FILE *fplog); 
+ //ADW>
+ int  read_polycoord     (char **word,int count,t_plumed_input *input,           FILE *fplog); 
+ //<ADW
  int  read_angle         (char **word,int count,t_plumed_input *input,           FILE *fplog);
  int  read_torsion       (char **word,int count,t_plumed_input *input,           FILE *fplog);
  int  read_hbonds        (char **word,int count,t_plumed_input *input,           FILE *fplog);
@@ -1465,6 +1468,9 @@ void eds_init(int cv_number, real update_period,
  void diffdist_restraint      (int i_c, struct mtd_data_s *mtd_data);
  void mindist_restraint       (int i_c, struct mtd_data_s *mtd_data);
  void coord_restraint         (int i_c, struct mtd_data_s *mtd_data);
+ //ADW>
+ void polycoord_restraint     (int i_c, struct mtd_data_s *mtd_data);
+ //ADW<
  void angle_restraint         (int i_c, struct mtd_data_s *mtd_data);
  void torsion_restraint       (int i_c, struct mtd_data_s *mtd_data);
  void alfabeta_restraint      (int i_c, struct mtd_data_s *mtd_data);
@@ -1552,6 +1558,13 @@ void grid_clone(struct grid_s *grid1, struct grid_s *grid2);
  void coord_checklist(int i_c, struct mtd_data_s *mtd_data);
  void coord_restraint_nlist(int i_c, struct mtd_data_s *mtd_data);
  void coord_restraint_no_nlist(int i_c, struct mtd_data_s *mtd_data);
+ //ADW>
+ void polycoord_newlist(int i_c, struct mtd_data_s *mtd_data);
+ void polycoord_checklist(int i_c, struct mtd_data_s *mtd_data);
+ void polycoord_restraint_nlist(int i_c, struct mtd_data_s *mtd_data);
+ void polycoord_restraint_no_nlist(int i_c, struct mtd_data_s *mtd_data);
+ //<ADW
+
  // hbd copy/read simple
  int  hbd_read_simple (FILE *myfile, FILE *fplog, const char *string, struct hybrid_elem *, int hasfile);	
  void  hbd_copy_simple ( struct hybrid_elem *elem ); 

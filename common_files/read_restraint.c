@@ -676,6 +676,11 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
     } else if(!strcmp(word[0],"COORD")){
       read_coord(word, count, &input, mtd_data->fplog);
       count++;
+      //ADW>
+    }else if(!strcmp(word[0],"POLYCOORD")){
+      read_polycoord(word, count, &input, mtd_data->fplog);
+      count++;
+      //<ADW
     } else if(!strcmp(word[0],"ANGLE")){
       read_angle(word, count, &input, mtd_data->fplog);
       count++;
