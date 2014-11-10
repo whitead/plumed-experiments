@@ -294,7 +294,7 @@ int PREFIX read_polycoord(char **word, int count, t_plumed_input *input, FILE *f
   else                       fprintf(fplog, " PBC OFF");
   if (logical.do_hills) fprintf(fplog," SIGMA %f\n",colvar.delta_r[count]);
   else fprintf(fplog,"\n"); 
-  fprintf(fplog, "|--FUNCTIONAL FORM: r^(moment) * (1-((d_ij-d_0)/r_0)^n) / (1-((d_ij-d_0)/r_0)^m) \n");
+  fprintf(fplog, "|--FUNCTIONAL FORM: u((r - d_0)/r_0)^moment, u(x) = 2x^3 - 3x^2 + 1 \n");
   fprintf(fplog, "|--PARAMETERS: r_0= %f d_0= %f moment= %i\n", colvar.r_0[count], colvar.d_0[count], colvar.moment[count]);
     
 
