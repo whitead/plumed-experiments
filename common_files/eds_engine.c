@@ -255,6 +255,7 @@ void PREFIX eds_read_restart(char* filename, FILE* fplog, t_eds* eds) {
     success &= fscanf(restart, "%lld ", &temp);
     for(i = 0; i < eds->cv_number; i++) {
       success &= fscanf(restart, "%lf", &(eds->current_coupling[i]));
+      eds->set_coupling[i] = eds->current_coupling[i];
     }
     for(i = 0; i < eds->cv_number; i++) {
       success &= fscanf(restart, "%lf ", &(eds->coupling_accum[i]));    
