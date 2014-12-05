@@ -71,19 +71,17 @@ void PREFIX eds_init(int cv_number, real update_period,
   eds->output_file = NULL;
 
   //divide it by 2 so we spend half equilibrating and half collecting statistics.
-  if(eds->update_period > 0)
+  if(update_period > 0)
     eds->update_period = update_period / 2;
+  else//just a ramp function
+    eds->update_period = update_period;
   eds->update_calls = 0;
   eds->b_equilibration = 1;
   eds->b_hard_coupling_range = b_hard_coupling_range;
 
   int i;
-  for(i = 0; i < cv_number; i++) {
+  for(i = 0; i < cv_number; i++)
     eds->max_coupling_range[i] = 1;
-    //check if we're ramping up
-    if(eds->update_period < 0 )
-      eds->current_coupling[i] = 0;
-  }
  
 }
 
@@ -152,12 +150,14 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
       }
       for(icv = 0;iw < nw; iw++) {
 	sscanf(word[iw], "%lf", &uno);
-	eds.current_coupling[icv] = uno;
+	if(eds.update_period >= 0) //only if we aren't ramping it up
+	  eds.current_coupling[icv] = uno;
 	eds.set_coupling[icv] = uno;
 	fprintf(fplog, 
-		"EDS: Starting CV %d at %lf\n", 
+		"EDS: Starting CV %d at %lf and set to %lf\n", 
 		icv+1,
-		eds.current_coupling[icv]);
+		eds.current_coupling[icv],
+		eds.set_coupling[icv]);
 	icv++;
       }
     } else {
@@ -333,7 +333,11 @@ real PREFIX eds_engine(real* ss0, real* force,
 
     //are we just ramping up to a constant value?
     if(eds->update_period < 0) {
-      eds->current_coupling[i] += eds->set_coupling[i] / fabs(eds->update_period);
+      if(eds->update_calls < fabs(eds->update_period))
+	 eds->current_coupling[i] += eds->set_coupling[i] / fabs(eds->update_period);
+      //make sure we don't reset update calls
+      b_finished_equil_flag = 0;
+      continue;
     } else if(eds->update_period == 0) {
       //we're not update at all
       continue;
@@ -456,7 +460,8 @@ void PREFIX eds_dump(t_eds* eds) {
 
 void PREFIX eds_write(t_eds* eds, long long int step) {
 
-  if(eds->update_period > 0 && eds->update_calls % eds->update_period == 0) {
+  if((eds->update_period > 0 && eds->update_calls % eds->update_period == 0) || 
+     (eds->update_period < 0 && eds->update_calls < fabs(eds->update_period))) {
 
     if(eds->output_file == NULL)
       eds->output_file = fopen(eds->output_filename, "w");
