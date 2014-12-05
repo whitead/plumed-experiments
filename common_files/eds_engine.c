@@ -71,7 +71,8 @@ void PREFIX eds_init(int cv_number, real update_period,
   eds->output_file = NULL;
 
   //divide it by 2 so we spend half equilibrating and half collecting statistics.
-  eds->update_period = update_period / 2;
+  if(eds->update_period > 0)
+    eds->update_period = update_period / 2;
   eds->update_calls = 0;
   eds->b_equilibration = 1;
   eds->b_hard_coupling_range = b_hard_coupling_range;
@@ -79,6 +80,9 @@ void PREFIX eds_init(int cv_number, real update_period,
   int i;
   for(i = 0; i < cv_number; i++) {
     eds->max_coupling_range[i] = 1;
+    //check if we're ramping up
+    if(eds->update_period < 0 )
+      eds->current_coupling[i] = 0;
   }
  
 }
@@ -88,11 +92,10 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
   //EDS STRIDE 500 SIMTEMP 300 SEED 4143 FILENAME FOO CV LIST 1 2 4
   //EDS CV CENTERS 0.5 2.5 2.3
   //EDS CV RANGES 5 5 5
-  //[optional] EDS CV CONSTANTS 2403.1 4003.31 499.1
   //EXAMPLE for fixed
-  //EDS SIMTEMP 300 CV LIST 1 2 4
+  //EDS RAMP 10000 SIMTEMP 300 CV LIST 1 2 4
   //EDS CV CENTERS 0.5 2.5 2.3
-  //EDS CV RANGES 34 23 4      
+  //EDS CV CONSTANTS 2403.1 4003.31 499.1 
   //EXAMPLE for restart
   //EDS STRIDE 500 SIMTEMP 300 SEED 4143 FILENAME FOO RESTART BAR CV LIST 1 2 4
   //EDS CV CENTERS 0.5 2.5 2.3
@@ -170,6 +173,18 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
     uno = -1;
     while(iw < nw) {
       last_iw = iw;
+
+      if(!strcmp(word[iw], "RAMP"))
+	if(!sscanf(word[++iw], "%d", &update_period)) {
+	  plumed_error("Could not read stride\n");
+	}
+	else {
+	  //make it negative to indicate
+	  update_period *= -1;
+	  iw++;
+	}
+      
+
       if(!strcmp(word[iw], "STRIDE"))
 	if(!sscanf(word[++iw], "%d", &update_period))
 	  plumed_error("Could not read stride\n");	  
@@ -296,9 +311,9 @@ real PREFIX eds_engine(real* ss0, real* force,
   int i;  
 
 
-  if(eds->update_calls == 0 && eds->update_period != 0) {
+  if(eds->update_calls == 0 && eds->update_period > 0) {
     for(i = 0; i < eds->cv_number; i++) {
-      eds->max_coupling_rate[i] = eds->max_coupling_range[i] / (10 * eds->update_period);
+      eds->max_coupling_rate[i] = eds->max_coupling_range[i] / eds->update_period;
     }
   }
 
@@ -316,9 +331,13 @@ real PREFIX eds_engine(real* ss0, real* force,
     force[eds->cv_map[i]] -= eds->current_coupling[i] / eds->centers[i];
     bias_energy += eds->current_coupling[i] / eds->centers[i] * (ss0[eds->cv_map[i]] - eds->centers[i]);
 
-    //are we updating the bias?
-    if(eds->update_period == 0)
+    //are we just ramping up to a constant value?
+    if(eds->update_period < 0) {
+      eds->current_coupling[i] += eds->set_coupling[i] / fabs(eds->update_period);
+    } else if(eds->update_period == 0) {
+      //we're not update at all
       continue;
+    }
     
     //if we aren't waiting for the bias to equilibrate
     if(!eds->b_equilibration) {
