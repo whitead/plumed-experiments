@@ -1190,7 +1190,7 @@ extern "C" void meta_force_calculation_(real *pos, real *force, int *atoms);
 extern "C" void cell_types_mp_pbc_cp2k_plumed_( real*, real*, real* );
 #else
 //GCC like
-extern "C" void __cell_types_MOD_pbc_cp2k_plumed_( real*, real*, real* );
+extern "C" void __cell_types_MOD_pbc_cp2k_plumed( real*, real*, real* );
 #endif //__INTEL_COMPILER
 #endif
 // this is the c++ class containing all plumed (like this there is no name conflict between things in cp2k and things in plumed??)

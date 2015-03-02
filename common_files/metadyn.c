@@ -1490,7 +1490,7 @@ for(i=0;i<3;i++){
   cell_types_mp_pbc_cp2k_plumed_(&rij[0],&rij[1],&rij[2]);
 #else
   //GCC like
-  __cell_types_MOD_pbc_cp2k_plumed_(&rij[0],&rij[1],&rij[2]);
+  __cell_types_MOD_pbc_cp2k_plumed(&rij[0],&rij[1],&rij[2]);
 #endif //__INTEL_COMPILER
 #endif//NO_UNDERSCORE
   *mod_rij=sqrt(pow(rij[0],2)+pow(rij[1],2)+pow(rij[2],2));
