@@ -719,12 +719,9 @@ class Grid(object):
             gray_scale = 1 - gray_scale
             
         gray_scale = gray_scale.astype(np.float64)
-        gray_scale = np.rot90(gray_scale)
-        #too_small = exp(-10)
-        #gray_scale[np.where(gray_scale < too_small)] = too_small        
-        #self.pot += np.log(gray_scale)
+        gray_scale = gray_scale.transpose()
         old_bins = self.nbins
-        self.set_bin_number(np.shape(gray_scale))
+        self.set_grid_point_number(np.shape(gray_scale))
         self.pot += gray_scale
         self.normalize()
         self.set_bin_number(old_bins)
