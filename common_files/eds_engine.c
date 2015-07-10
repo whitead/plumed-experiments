@@ -90,7 +90,7 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
   //EDS STRIDE 500 SIMTEMP 300 SEED 4143 FILENAME FOO CV LIST 1 2 4
   //EDS CV CENTERS 0.5 2.5 2.3
   //EDS CV RANGES 5 5 5
-  //EXAMPLE for fixed
+  //EXAMPLE for fixed (omit the ramp to not include a ramp)
   //EDS RAMP 10000 SIMTEMP 300 CV LIST 1 2 4
   //EDS CV CENTERS 0.5 2.5 2.3
   //EDS CV CONSTANTS 2403.1 4003.31 499.1 
@@ -176,7 +176,7 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
 
       if(!strcmp(word[iw], "RAMP"))
 	if(!sscanf(word[++iw], "%d", &update_period)) {
-	  plumed_error("Could not read stride\n");
+	  plumed_error("Could not read ramp value\n");
 	}
 	else {
 	  //make it negative to indicate
