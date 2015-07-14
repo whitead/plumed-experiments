@@ -564,38 +564,7 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 	colvar.stoch_sample_seed = 0;
 	fprintf(mtd_data->fplog, "DEFAULT STOCHASTIC SAMPLING SEED IS 0\n");
       }	else
-	fprintf(mtd_data->fplog,"Will use seed %d for sampling\n", colvar.stoch_sample_seed);      
-
-    }else if(!strcmp(word[0], "EM_WEIGHTS")) {
-      /* The EM_WEIGHT file should be a single floating point number per line
-       * which is the weight of the the atoms in group which is being biased. Only
-       * a single group at once is supported.
-       */
-      logical.b_em_weights = 1; //enable em_weights
-      char temp_filename[120];
-      if(!strcmp(word[1],"FILENAME")){
-	sscanf(word[2], "%s", temp_filename);
-      }
-      file = fopen(temp_filename, "r");
-      if(file == NULL) {
-	plumed_error("Could not find EM_WEIGHTS file!\n");	
-      }
-      //first line should contain number of lines 
-      if(!fscanf(file, "%d\n", &tmpc) || tmpc <= 0)
-	plumed_error("First line in EM_WEIGHTS file must have number of atoms");
-
-      colvar.em_weights = (real*) malloc(sizeof(real) * tmpc);
-      fprintf(mtd_data->fplog, "Reading in %d EM weights\n", tmpc);
-      for(i = 0; i < tmpc; i++) {
-	if(!fscanf(file, "%lf\n", &uno)) {
-	  char buf[256];
-	  sprintf(buf, "Invalid line (around line number %d) in EM_WEIGHTS file\n", i+2);
-	  plumed_error(buf);
-	}
-	colvar.em_weights[i] = uno;	
-	fprintf(mtd_data->fplog, "Group atom %d has a weight of %lf\n", i+1, colvar.em_weights[i]);
-      }
-	
+	fprintf(mtd_data->fplog,"Will use seed %d for sampling\n", colvar.stoch_sample_seed);      	
       // <ADW
     } else if(!strcmp(word[0],"DEBUG_TRANSITIONTEMPERED")){
       logical.ttdebug=1;
@@ -1437,9 +1406,6 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
    if(hills.max_height>0.0)      plumed_error("MAX_HEIGHT NOT ENABLED");
    if(logical.hrex)              plumed_error("HAMILTONIAN REPLICA-EXCHANGE NOT ENABLED");
    if(logical.tamd)              plumed_error("TAMD/DAFED NOT ENABLED");
-   // JFD>
-   if(logical.mcgdp_hills)  plumed_error("MCGDP_HILLS NOT ENABLED");
-   // <JFD
   }
 
 // GRID and WRITE/READ
