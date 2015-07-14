@@ -1299,9 +1299,6 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
       if(logical.read_grid)   sprintf(bias_grid.r_file,"%s%i",  bias_grid.r_file, mtd_data.repl);
       if(logical.write_grid)  sprintf(bias_grid.w_file,"%s%i",  bias_grid.w_file, mtd_data.repl);
       if(logical.do_external) sprintf(extpot.r_file,"%s%i",  extpot.r_file, mtd_data.repl);
-      // JFD>
-      if(logical.ttdebug)     sprintf(colvar.ttdebug_file,"%s%i", colvar.ttdebug_file, mtd_data.repl);
-      // <JFD
 #if defined (PLUMED_GROMACS4) || defined (PLUMED_GROMACS45)
     } else if(mtd_data.mcr->ms->nsim>1) {
       sprintf(mtd_data.colfilen, "%s/COLVAR%i", hills.dir, mtd_data.mcr->ms->sim);
@@ -1310,9 +1307,6 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
       if(logical.read_grid)   sprintf(bias_grid.r_file,"%s%i",  bias_grid.r_file, mtd_data.mcr->ms->sim);
       if(logical.write_grid)  sprintf(bias_grid.w_file,"%s%i",  bias_grid.w_file, mtd_data.mcr->ms->sim);
       if(logical.do_external) sprintf(extpot.r_file,"%s%i",  extpot.r_file, mtd_data.mcr->ms->sim);
-      // JFD>
-      if(logical.ttdebug)     sprintf(colvar.ttdebug_file,"%s%i",  colvar.ttdebug_file, mtd_data.mcr->ms->sim);
-      // <JFD
 #endif
     }
   }
@@ -1390,7 +1384,6 @@ void PREFIX init_metadyn( char *metainp, char *metaout, int *atoms, real *mass, 
       k = (real) DP2CUTOFF/GTAB*j;
       hills.exp[j] = exp(-k);
     }
-
     // JFD>
     if (logical.mcgdp_hills) {
       long int cv_index;

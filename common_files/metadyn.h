@@ -373,9 +373,6 @@ struct logical_s
   int    norescale;
   int    welltemp;
   // JFD>
-  int    dicksonian_tempering;      // Use a well-tempered metadynamics such that Dickson's approximation is exact.
-  int    transition_tempering;      // Use transition-tempering
-  int    ttdebug;
   int    mcgdp_hills;          // Use the McGovern-de Pablo boundary consistent hills.
   // <JFD
   //ADW>
@@ -509,16 +506,6 @@ struct colvar_s
   real   stoch_sample;     //If < 1, add hills stochastically
   int   stoch_sample_seed;     //Seed for stochastic sampling   
   //<ADW
-  // JFD>
-  real   tttemp;                        // transition tempered temperature
-  real   ttfactor;                      // transitiontemp factor = tttemp/simtemp
-  real   ttthreshold;                   // transitiontemp threshold
-  int    n_transition_wells;
-  int    transition_wells_converted;
-  real   transition_wells[100][nconst_max];                    // Transition wells in transition tempered metadynamics
-  int    transition_well_indices[100];
-  char   ttdebug_file[800];
-  // <JFD
   int    list[nconst_max][4];                           // structure definition for list 
   int    natoms  [nconst_max];
   int    *cvatoms[nconst_max];
@@ -1323,74 +1310,6 @@ void eds_init(int cv_number, real update_period,
  void commit_analysis();
  void read_hills(struct mtd_data_s *mtd_data, int restart, int first_read);
  void hills_reallocate(struct mtd_data_s *mtd_data);
- // JFD>
- // Added for transition tempering
- double transition_bias_ND();
- // int  read_density       (char **word,int count,t_plumed_input *input,           FILE *fplog);
- // int  read_densityswitch (char **word,int count,t_plumed_input *input,           FILE *fplog);
- #define TTMETAD_LATTICE_PBC 0
- #define TTMETAD_LATTICE_RBC 1
-
- // The lattice struct holds the grid dimensions, number of grid points in each
- // dimension, the boundary conditions in each dimension, and calculation intermediates.
-
- typedef struct {
-     size_t dimensions;
-     size_t total_size;
-     size_t *dim_sizes;
-     size_t *dim_strides;
-     size_t *dim_bcs;
- } lattice;
-
- // Lattice array structs hold an array of data defined on each lattice point and
- // a pointer to the lattice structure of the data.
-
- typedef struct {
-     lattice *index_lat;
-     double *vals;
- } lattice_array;
-
- // The indexed_value_max_heap struct stores indexed values in a heap sorted
- // by value so that the root entry has the greatest value in the heap.
-
- typedef struct {
-     size_t max_size;
-     size_t curr_size;
-     size_t *indices;
-     double *vals;
- } indexed_value_max_heap;
-
- // Pure lattice routines
- lattice *make_lattice(size_t dims, size_t *d_sizes, size_t *d_bcs);
- void free_lattice(lattice *lat);
- size_t *one_d_index_to_multi_d(lattice *lat, size_t index);
- size_t multi_d_index_to_one_d(lattice *lat, size_t *index);
- void find_neighbors(lattice *lat, size_t index, size_t *n_neighs, size_t *neighs);
-
- // Lattice-point data array routines
- lattice_array *make_lattice_array(lattice *lat);
- lattice_array *make_const_lattice_array(lattice *lat);
- void free_lattice_array(lattice_array *lat_arr);
- void free_const_lattice_array(lattice_array *lat_arr);
- void set_lattice_array(lattice_array *lat_arr, double *vals);
- void set_const_lattice_array(lattice_array *lat_arr, double *vals);
-
- // Min heap routines for storing indexed values sorted by value
- indexed_value_max_heap *make_indexed_value_max_heap(size_t max_size);
- void free_indexed_value_max_heap(indexed_value_max_heap *ival_mheap);
- void insert_indexed_value(indexed_value_max_heap *ival_mheap, size_t index, double value);
- double get_max(indexed_value_max_heap *ival_mheap);
- size_t get_max_index(indexed_value_max_heap *ival_mheap);
- // void density_restraint       (int i_c, struct mtd_data_s *mtd_data);
- // void densityswitch_restraint (int i_c, struct mtd_data_s *mtd_data);
- void delete_max(indexed_value_max_heap *ival_mheap);
- void swap_heap_entries(indexed_value_max_heap *ival_mheap, size_t index_one, size_t index_two);
-
- // A routine to find the highest minimum value of a given positive function
- // (passed tabulated in a lattice_array) along any paths between a source
- // and a sink on the lattice.
- double find_maximal_path_minimum(lattice_array *lat_arr, size_t source, size_t sink);
- // <JFD
 // CV routines
  //ADW>
  int independent_stash_cv(int i_c, int atom_index);

@@ -478,10 +478,6 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
           iw++; sscanf(word[iw], "%lf", &uno); colvar.simtemp = (real) uno; read_simtemp = 1;
         } else if(!strcmp(word[iw],"READ_OLD_BF")){
           logical.read_old_bf = 1;
-        // JFD>
-        } else if(!strcmp(word[iw],"DICKSONIAN_TEMPERING")){
-          logical.dicksonian_tempering = 1;
-        // <JFD
 	} else if(!strcmp(word[iw],"GLOBAL_TEMPERING")){
 	// ADW>		  
 	  logical.global_tempering = 1;
@@ -506,60 +502,6 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
       if(logical.read_old_bf) fprintf(mtd_data->fplog, "|--READING OLD BIASFACTOR WHEN RESTARTING \n");
       if(logical.dicksonian_tempering) fprintf(mtd_data->fplog, "|--USING DICKSONIAN TEMPERING\n");
       fprintf(mtd_data->fplog, "\n"); 
-    // JFD>
-    } else if(!strcmp(word[0],"TRANSITIONTEMPERED")){
-      logical.transition_tempering = 1;
-      int read_biasfactor = 0;
-      int read_cvtemp = 0;
-      int read_simtemp = 0;
-      int ncv;
-      int read_ncv = 0;
-      int read_wells = 0;
-      colvar.ttthreshold = 0.0;
-      for(iw=1;iw<nw;iw++){
-        if(!strcmp(word[iw],"CVTEMP")){
-          iw++; sscanf(word[iw], "%lf", &uno); colvar.tttemp   = (real) uno; read_cvtemp = 1;
-        } else if(!strcmp(word[iw],"BIASFACTOR")){
-          iw++; sscanf(word[iw], "%lf", &uno); colvar.ttfactor = (real) uno; read_biasfactor = 1;
-        } else if(!strcmp(word[iw],"SIMTEMP")){
-          iw++; sscanf(word[iw], "%lf", &uno); colvar.simtemp = (real) uno; read_simtemp = 1;
-        } else if(!strcmp(word[iw],"NCV")){
-          iw++; sscanf(word[iw], "%d", &ncv); read_ncv = 1;
-          if (ncv > nconst_max) plumed_error("Invalid choice for NCV for keyword TRANSITIONTEMPERED");
-        } else if(!strcmp(word[iw],"TRANSITIONWELL")){
-          if (!read_ncv) plumed_error("Must specify NCV before TRANSITIONWELL for keyword TRANSITIONTEMPERED");
-          for (i=0;i<ncv;i++) {
-            iw++; sscanf(word[iw], "%lf", &uno);
-            colvar.transition_wells[read_wells][i] = (real) uno;
-          }
-          read_wells++;
-        } else if(!strcmp(word[iw],"THRESHOLD")){
-          iw++; sscanf(word[iw], "%lf", &uno);
-          colvar.ttthreshold = mtd_data->boltz * (real) uno;
-        } else if(!strcmp(word[iw],"READ_OLD_BF")){
-          logical.read_old_bf = 1;
-        } else {
-          plumed_error("Unknown flag for keyword TRANSITIONTEMPERED");
-        }
-      }
-      if(!(read_wells >= 2))
-        plumed_error("WITH TRANSITIONTEMPERED YOU ALWAYS HAVE TO SPECIFY AT LEAST TWO WELLS WITH THE \"TRANSITIONWELL \" KEYWORD");
-      colvar.n_transition_wells = read_wells;
-      if(!read_simtemp)
-        plumed_error("WITH TRANSITIONTEMPERED YOU ALWAYS HAVE TO SPECIFY THE \"SIMTEMP \" KEYWORD");
-      if(read_biasfactor==read_cvtemp)
-        plumed_error("WITH TRANSITIONTEMPERED YOU HAVE TO SPECIFY EITHER \"CVTEMP \" OR \"BIASFACTOR \" KEYWORD");
-      if(read_cvtemp)     colvar.ttfactor = colvar.tttemp / colvar.simtemp;  
-      if(read_biasfactor) colvar.tttemp   = colvar.ttfactor * colvar.simtemp;
-      if (colvar.ttfactor<=0.0) {  
-        char buf[1024];
-        sprintf(buf,"TRANSITIONTEMPERED: BIASFACTOR less than or equal to 0.0 ( %f ) \n",colvar.wfactor);
-        plumed_error(buf);
-      } 
-      fprintf(mtd_data->fplog, "|-TRANSITION-TEMPERED METADYNAMICS WITH BIASFACTOR %f (CVTEMP = %f) \n", colvar.wfactor,colvar.wtemp);
-      if(logical.read_old_bf) fprintf(mtd_data->fplog, "|--READING OLD BIASFACTOR WHEN RESTARTING \n");
-      fprintf(mtd_data->fplog, "\n");
-  // <JFD
   // ADW>
     }else if(!strcmp(word[0],"TARGET_DISTRIBUTION")) {
       logical.target_distribution = 1;
@@ -1475,10 +1417,6 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
 
   if(logical.welltemp && !logical.do_hills)  plumed_error("WELLTEMPERED must be used with HILLS keyword");
   // JFD>
-  if(logical.dicksonian_tempering && !logical.do_grid)  plumed_error("DICKSONIAN_TEMPERING must be used with GRID keyword");
-  if(logical.transition_tempering && !logical.do_hills) plumed_error("TRANSITIONTEMPERED must be used with HILLS keyword");
-  if(logical.transition_tempering && !logical.do_grid)  plumed_error("TRANSITIONTEMPERED must be used with GRID keyword");
-  if(logical.ttdebug && !logical.transition_tempering)  plumed_error("DEBUG_TRANSITIONTEMPERED must be used with TRANSITIONTEMPERED keyword");
   if(logical.mcgdp_hills && !logical.do_hills)  plumed_error("MCGDP_HILLS must be used with HILLS keyword");
   if(logical.mcgdp_hills && !logical.do_grid)  plumed_error("MCGDP_HILLS must be used with GRID keyword");
   // <JFD
@@ -1500,8 +1438,6 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
    if(logical.hrex)              plumed_error("HAMILTONIAN REPLICA-EXCHANGE NOT ENABLED");
    if(logical.tamd)              plumed_error("TAMD/DAFED NOT ENABLED");
    // JFD>
-   if(logical.dicksonian_tempering)  plumed_error("WELLTEMPERED USING THE DICKSON RULE NOT ENABLED");
-   if(logical.transition_tempering)  plumed_error("TRANSITIONTEMPERED NOT ENABLED");
    if(logical.mcgdp_hills)  plumed_error("MCGDP_HILLS NOT ENABLED");
    // <JFD
   }
@@ -1605,8 +1541,12 @@ void PREFIX read_restraint(struct mtd_data_s *mtd_data)
   if(logical.remd && !logical.rpxm) cite_please("buss+06jacs",mtd_data->fplog);
   if(logical.rpxm)       cite_please("pian-laio07jpcb",mtd_data->fplog);
   if(logical.welltemp)   cite_please("bard+08prl",mtd_data->fplog);
+  // ADW>
+  if(logical.global_tempering)   cite_please("dama+14jctc", mtd_data->fplog);
+  if(logical.eds)   cite_please("white+14jctc", mtd_data->fplog);
+  if(logical.target_distribution)   cite_please("white+15jctc", mtd_data->fplog);
+  // <ADW
   // JFD>
-  if(logical.dicksonian_tempering) cite_please("dickson2011pre",mtd_data->fplog);
   if(logical.mcgdp_hills) cite_please("mcgovern2013jcp", mtd_data->fplog);
   // <JFD
   if(logical.path)       cite_please("bran+07jcp",mtd_data->fplog);
@@ -1652,8 +1592,6 @@ void PREFIX read_defaults()
   logical.widthadapt            = 0;
   logical.welltemp              = 0;
   // JFD>
-  logical.dicksonian_tempering  = 0;
-  logical.transition_tempering  = 0;
   logical.mcgdp_hills      = 0;
   // <JFD
   //ADW>
@@ -1887,15 +1825,24 @@ void PREFIX cite_please (const char* re, FILE *fplog){
     fprintf(fplog, "  A Temperature Accelerated Method for Sampling Free Energy and Determining Reaction Pathways in Rare Events Simulations \n");
     fprintf(fplog, "  Chem. Phys. Lett. 2006 vol. 426 pp. 168-175 \n");
  // JFD>
- } else if(!strcmp(re,"dickson2011pre")){
-    fprintf(fplog, "  B. M. Dickson\n");
-    fprintf(fplog, "  Approaching a parameter-free metadynamics \n");
-    fprintf(fplog, "  Phys. Rev. E 2011 vol. 84 pp. 037701 \n");
  } else if(!strcmp(re,"mcgovern2013jcp")){
     fprintf(fplog, "  M. McGovern and J. J. De Pablo\n");
     fprintf(fplog, "  A boundary correction algorithm for metadynamics in multiple dimensions.\n");
     fprintf(fplog, " J. Chem. Phys. 2013 vol. 139 pp. 084102\n");
  // <JFD
+ //ADW>
+ } else if(!strcmp(re,"dama+14jctc")) {
+   fprintf(fplog, "  J. F. Dama, G. Rotskoff, M. Parrinello and G. A. Voth\n");
+   fprintf(fplog, "  Transition-Tempered Metadynamics: Robust, Convergent Metadynamics via On-the-Fly Transition Barrier Estimation \n");
+   fprintf(fplog, " J. Chem. Theory Comput. 2014 vol. 10 (9) pp. 3626-3633\n");
+ } else if(!strcmp(re,"white+14jctc")) {
+   fprintf(fplog, "  A. D. White and G. A. Voth\n");
+    fprintf(fplog, "  Efficient and Minimal Method to Bias Molecular Simulations with Experimental Data.\n");
+    fprintf(fplog, " J. Chem. Theory Comput. 2014 vol. 10 (8) pp. 3023-3030\n");
+ } else if(!strcmp(re,"white+15jctc")) {
+   fprintf(fplog, "  A. D. White, J. F. Dama and G. A. Voth \n");
+    fprintf(fplog, "  Designing Free Energy Surfaces that Match Experimental Data with Metadynamics.\n");
+    fprintf(fplog, " J. Chem. Theory Comput. 2015 vol. 11 (6) pp. 2451-2460\n");
  } else {
     assert(1); // wrong bib name
  }
