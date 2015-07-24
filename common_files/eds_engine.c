@@ -328,8 +328,8 @@ real PREFIX eds_engine(real* ss0, real* force,
 
   //apply forces for this setp and calculate energies
   for(i = 0; i < eds->cv_number; i++) {
-    force[eds->cv_map[i]] -= eds->current_coupling[i] / eds->centers[i];
-    bias_energy += eds->current_coupling[i] / eds->centers[i] * (ss0[eds->cv_map[i]] - eds->centers[i]);
+    force[eds->cv_map[i]] -= eds->current_coupling[i];
+    bias_energy += eds->current_coupling[i] * (ss0[eds->cv_map[i]] - eds->centers[i]);
 
     //are we just ramping up to a constant value?
     if(eds->update_period < 0) {
@@ -386,7 +386,7 @@ real PREFIX eds_engine(real* ss0, real* force,
 
     for(i = 0; i < eds->cv_number; i++) {
       //calulcate step size
-      temp = 2. * (eds->means[i] / eds->centers[i] - 1) * eds->ssd[i] / 
+      temp = 2. * (eds->means[i] - 1) * eds->ssd[i] / 
 	(eds->update_calls - 1);
       step_size = temp / (eds->simtemp * boltz);
 
