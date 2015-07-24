@@ -24,10 +24,13 @@ used, just adding time to allow the bias to settle is sufficient to
 remove the effect of adaptively finding the bias. If energy
 conservation is essential (NVE), first find the bias in NVT and then
 fix it to the `average` value from the NVT simulation. This is a brief
-overview, please see **Efficient and minimal method to bias molecular
+overview, please see:
+
+**Efficient and minimal method to bias molecular
 simulations with experimental data **. AD White, GA
-Voth. *J. Chem. Theory Comput.* **2014**, *10 (8)*, pp 189-194 for
-complete information.
+Voth. *J. Chem. Theory Comput.* **2014**, *10 (8)*, pp 189-194
+
+for complete information.
 
 **Input**
 
@@ -84,8 +87,10 @@ from 0.
 
 The `EDS_OUT` file contains the step in the first column, followed by
 the bias coefficients. The bias force applied to the CV is `-a`, where
-`a` is the coefficient in the EDS column and `a CV` is the bias
-energy, where CV is the value of the CV.
+`a` is the coefficient in the EDS column and `a*CV` is the bias
+energy, where CV is the value of the CV. The last columns keep track
+of how much the bias has been changed and are part of the EDS
+algorithm for restarting.
 
 
 
@@ -108,7 +113,8 @@ see one of the many papers written on the topic.
 
 **Input**
 
-The input below would match the phi/psi angles on alanine dipeptide to the given grid.
+The input below would cause the phi/psi angles on alanine dipeptide to
+morph into the given target.dat PMF.
 
 ```
 #These are metadynamics parameters
