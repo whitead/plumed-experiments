@@ -378,7 +378,7 @@ real PREFIX eds_engine(real* ss0, real* force,
 
 
   //Now we update coupling constant, if necessary
-  if(!eds->b_equilibration && eds->update_calls == eds->update_period) {
+  if(!eds->b_equilibration && eds->update_period > 0 && eds->update_calls == eds->update_period) {
 
     //use estimated variance to take a step
     real step_size = 0;
@@ -484,6 +484,7 @@ void PREFIX eds_write(t_eds* eds, long long int step) {
     fprintf(eds->output_file, "\n");
     eds_dump(eds);
     fprintf(eds->output_file, "-------------------------");
+    fflush(eds->output_file);
 #endif//DUMP_EDS
   }
   
