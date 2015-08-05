@@ -419,6 +419,7 @@ typedef struct s_t_eds {
   real*  max_coupling_range; //max coupling range
   real*  max_coupling_rate; //max coupling rate
   real*  set_coupling; //where we want the coupling to be
+  real*  avg_coupling; //running average of coupling
   real*  current_coupling; //where the coupling is
   real*  coupling_rate; //how quickly to change the coupling
   real*  coupling_accum; //accumation in coupling
@@ -430,6 +431,7 @@ typedef struct s_t_eds {
   int    cv_number;//number of CV's we're biasing
   int    update_period; //the stride/period, how often to update
   int    update_calls; //how often we've been called
+  long long int    avg_coupling_count; //The number of samples contributing to average coupling
   int    b_equilibration; //are we in equilibration phase?
   int    b_hard_coupling_range; //allow/disallow flexible coupling range
 } t_eds;
