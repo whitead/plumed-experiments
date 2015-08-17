@@ -502,7 +502,7 @@ void PREFIX eds_write(t_eds* eds, long long int step) {
      (eds->update_period < 0 && eds->update_calls < fabs(eds->update_period))) {
 
     if(eds->output_file == NULL)
-      eds->output_file = fopen(eds->output_filename, "w");
+      eds->output_file = fopen(eds->output_filename, "a");
     
     int i;
     
