@@ -60,6 +60,7 @@ void PREFIX eds_init(int cv_number, real update_period,
   eds->current_coupling = (real*) calloc(cv_number, sizeof(real));
   eds->coupling_rate = (real*) calloc(cv_number, sizeof(real));
   eds->coupling_accum = (real*) calloc(cv_number, sizeof(real));
+  eds->press_term = (real*) calloc(cv_number, sizeof(real));
 
   eds->cv_number = cv_number;
   
@@ -335,7 +336,8 @@ void PREFIX eds_free(t_eds* eds) {
  * Run update of calculation and apply forces
  */
 real PREFIX eds_engine(real* ss0, real* force, 
-		       t_eds* eds, real boltz) {
+		       t_eds* eds, real boltz,
+		       real* pseudo_virial) {
 
   real bias_energy = 0.0;
   int i;  
@@ -357,10 +359,11 @@ real PREFIX eds_engine(real* ss0, real* force,
     force[eds->cv_map[i]] = 0;
 
   //apply forces for this setp and calculate energies
+  eds->press_sum = 0;
   for(i = 0; i < eds->cv_number; i++) {
     force[eds->cv_map[i]] -= eds->current_coupling[i] / eds->centers[i];
     bias_energy += eds->current_coupling[i] / eds->centers[i] * (ss0[eds->cv_map[i]] - eds->centers[i]);
-
+    
     //are we just ramping up to a constant value?
     if(eds->update_period < 0) {
       if(eds->update_calls < fabs(eds->update_period))
@@ -380,6 +383,11 @@ real PREFIX eds_engine(real* ss0, real* force,
       delta = ss0[eds->cv_map[i]] - eds->means[i];
       eds->means[i] += delta / eds->update_calls;
       eds->ssd[i] += delta * (ss0[eds->cv_map[i]] - eds->means[i]);
+
+      //for pressure
+          // just the coupling constant times the already computed partial derivatives times coordinate positions
+      delta =  (-eds->current_coupling[i] / eds->centers[i] * pseudo_virial[eds->cv_map[i]]) - eds->press_term[i];
+      eds->press_term[i] += delta / eds->update_calls;
     } else {
       //equilibrating
       //check if we've reached the setpoint
@@ -414,20 +422,37 @@ real PREFIX eds_engine(real* ss0, real* force,
     real step_size = 0;
     real temp;
 
+    eds->press_sum = 0;
+    for(i = 0; i < eds->cv_number; i++) {
+      //compute average pseudo-pressure contribution
+      eds->press_sum += eds->press_term[i];
+    }
+
+
     for(i = 0; i < eds->cv_number; i++) {
       //calulcate step size
       temp = 2. * (eds->means[i] / eds->centers[i] - 1) * eds->ssd[i] / 
 	(eds->update_calls - 1);
+      //this already has negative sign in it!
       step_size = temp / (eds->simtemp * boltz);
+
+      //now add virial penalty
+      //NOTE: This is wrong, I'm just trying to zero pressure
+      step_size = -2 * eds->press_term[i] * eds->press_sum;
 
       //reset means/vars
       eds->means[i] = 0;
       eds->ssd[i] = 0;
+
+      //reset viral terms
+      eds->press_term[i] = 0;
+
       
       //multidimesional stochastic step
       if(eds->cv_number == 1 || rando(&eds->seed) < 1. / eds->cv_number) {
 	eds->coupling_accum[i] += step_size * step_size;
 	eds->current_coupling[i] = eds->set_coupling[i];
+	//no negative sign because it's in step_size
 	eds->set_coupling[i] += eds->max_coupling_range[i] / 
 	  sqrt(eds->coupling_accum[i]) * step_size;
 	eds->coupling_rate[i] = (eds->set_coupling[i] - eds->current_coupling[i]) / eds->update_period;
@@ -520,6 +545,12 @@ void PREFIX eds_write(t_eds* eds, long long int step) {
     //print accumulation
     for(i = 0; i < eds->cv_number; i++)
       fprintf(eds->output_file, "%E ", eds->coupling_accum[i]);
+
+    //print pseudo-virials terms and their sum
+    for(i = 0; i < eds->cv_number; i++)
+      fprintf(eds->output_file, "%E ", eds->press_term[i]);
+    fprintf(eds->output_file, "%E ", eds->press_sum);
+
     
     //flush file
     fprintf(eds->output_file, "\n");
