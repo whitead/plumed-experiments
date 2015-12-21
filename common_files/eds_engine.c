@@ -387,6 +387,7 @@ real PREFIX eds_engine(real* ss0, real* force,
       //for pressure
           // just the coupling constant times the already computed partial derivatives times coordinate positions
       delta =  (-eds->current_coupling[i] / eds->centers[i] * pseudo_virial[eds->cv_map[i]]) - eds->press_term[i];
+      eds->press_sum += -eds->current_coupling[i] / eds->centers[i] * pseudo_virial[eds->cv_map[i]];
       eds->press_term[i] += delta / eds->update_calls;
     } else {
       //equilibrating
@@ -437,8 +438,8 @@ real PREFIX eds_engine(real* ss0, real* force,
       step_size = temp / (eds->simtemp * boltz);
 
       //now add virial penalty
-      //NOTE: This is wrong, I'm just trying to zero pressure
-      step_size = -2 * eds->press_term[i] * eds->press_sum;
+      //rhs is positive, but making it negative since step_size is negative
+      step_size += -2 *  eds->press_term[i] / ( eds->current_coupling[i] == 0 ? 1 : eds->current_coupling[i]) * eds->press_sum;
 
       //reset means/vars
       eds->means[i] = 0;
@@ -504,6 +505,7 @@ void PREFIX eds_dump(t_eds* eds) {
   dump_array(eds->avg_coupling, eds->cv_number, eds->output_file, "avg_coupling");
   dump_array(eds->coupling_rate, eds->cv_number, eds->output_file, "coupling_rate");
   dump_array(eds->coupling_accum, eds->cv_number, eds->output_file, "coupling_accum");
+  dump_array(eds->press_term, eds->cv_number, eds->output_file, "press_term");
   
   int i;
   fprintf(eds->output_file, "%s: ", "cv_map");
@@ -523,7 +525,7 @@ void PREFIX eds_dump(t_eds* eds) {
 
 void PREFIX eds_write(t_eds* eds, long long int step) {
 
-  if((eds->update_period > 0 && eds->update_calls % eds->update_period == 0) || 
+  if(1 || (eds->update_period > 0 && eds->update_calls % eds->update_period == 0) || 
      (eds->update_period < 0 && eds->update_calls < fabs(eds->update_period))) {
 
     if(eds->output_file == NULL)
