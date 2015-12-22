@@ -83,8 +83,10 @@ void PREFIX eds_init(int cv_number, real update_period,
   eds->b_hard_coupling_range = b_hard_coupling_range;
 
   int i;
-  for(i = 0; i < cv_number; i++)
+  for(i = 0; i < cv_number; i++) {
     eds->max_coupling_range[i] = 1;
+    eds->coupling_accum[i] = 1;
+  }
  
 }
 
@@ -388,6 +390,7 @@ real PREFIX eds_engine(real* ss0, real* force,
           // just the coupling constant times the already computed partial derivatives times coordinate positions
       delta =  (-eds->current_coupling[i] / eds->centers[i] * pseudo_virial[eds->cv_map[i]]) - eds->press_term[i];
       eds->press_sum += -eds->current_coupling[i] / eds->centers[i] * pseudo_virial[eds->cv_map[i]];
+
       eds->press_term[i] += delta / eds->update_calls;
     } else {
       //equilibrating
@@ -440,6 +443,8 @@ real PREFIX eds_engine(real* ss0, real* force,
       //now add virial penalty
       //rhs is positive, but making it negative since step_size is negative
       step_size += -2 *  eds->press_term[i] / ( eds->current_coupling[i] == 0 ? 1 : eds->current_coupling[i]) * eds->press_sum;
+
+      step_size += 0.1;
 
       //reset means/vars
       eds->means[i] = 0;
