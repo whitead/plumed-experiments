@@ -365,6 +365,7 @@ real PREFIX eds_engine(real* ss0, real* force,
   for(i = 0; i < eds->cv_number; i++) {
     force[eds->cv_map[i]] -= eds->current_coupling[i] / eds->centers[i];
     bias_energy += eds->current_coupling[i] / eds->centers[i] * (ss0[eds->cv_map[i]] - eds->centers[i]);
+    eds->press_sum += -eds->current_coupling[i] / eds->centers[i] * pseudo_virial[eds->cv_map[i]];
     
     //are we just ramping up to a constant value?
     if(eds->update_period < 0) {
@@ -389,7 +390,7 @@ real PREFIX eds_engine(real* ss0, real* force,
       //for pressure
           // just the coupling constant times the already computed partial derivatives times coordinate positions
       delta =  (-eds->current_coupling[i] / eds->centers[i] * pseudo_virial[eds->cv_map[i]]) - eds->press_term[i];
-      eds->press_sum += -eds->current_coupling[i] / eds->centers[i] * pseudo_virial[eds->cv_map[i]];
+      //eds->press_sum += -eds->current_coupling[i] / eds->centers[i] * pseudo_virial[eds->cv_map[i]];
 
       eds->press_term[i] += delta / eds->update_calls;
     } else {
@@ -443,8 +444,6 @@ real PREFIX eds_engine(real* ss0, real* force,
       //now add virial penalty
       //rhs is positive, but making it negative since step_size is negative
       step_size += -2 *  eds->press_term[i] / ( eds->current_coupling[i] == 0 ? 1 : eds->current_coupling[i]) * eds->press_sum;
-
-      step_size += 0.1;
 
       //reset means/vars
       eds->means[i] = 0;
