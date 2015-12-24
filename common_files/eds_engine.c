@@ -308,6 +308,13 @@ void PREFIX eds_read_restart(char* filename, FILE* fplog, t_eds* eds) {
     for(i = 0; i < eds->cv_number; i++) {
       success &= fscanf(restart, "%lf ", &(eds->coupling_accum[i]));    
     }
+    //read in pressure terms
+    for(i = 0; i < eds->cv_number; i++) {
+      success &= fscanf(restart, "%lf ", &(eds->press_term[i]));    
+    }
+    //read pressure sum
+    success &= fscanf(restart, "%lf", &(eds->press_sum));
+
     if(!success)
       plumed_error("Found incomplete line in EDS restart file");
   }
@@ -320,6 +327,7 @@ void PREFIX eds_free(t_eds* eds) {
 
   free(eds->centers);
   free(eds->means);
+  free(eds->press_term);
   free(eds->ssd);
   free(eds->max_coupling_rate);
   free(eds->max_coupling_range);
@@ -328,6 +336,7 @@ void PREFIX eds_free(t_eds* eds) {
   free(eds->coupling_rate);
   free(eds->coupling_accum);
   free(eds->output_filename);
+
   
   fclose(eds->output_file);
   
