@@ -127,6 +127,8 @@ FixPlumed::FixPlumed(LAMMPS *lmp, int narg, char **arg) :
   int i,j,k,i_c,nn,mm;
   int me;
 
+  virial_flag = 1;
+
   if (narg != 7) error->all(FLERR,"Illegal fix plumed command");
 
   MPI_Comm_rank(world,&me);
@@ -323,6 +325,7 @@ void FixPlumed::min_setup(int vflag)
 
 void FixPlumed::post_force(int vflag)
 {
+  if (vflag) v_setup(vflag);
   plumed_interface();
 }
 
@@ -332,6 +335,7 @@ void FixPlumed::plumed_interface()
 {
 //printf("ENTERING PLUMED INTERFACE\n");
   int me,nprocs;
+  double v[] = {0, 0, 0, 0, 0, 0};//for virial
   MPI_Comm_rank(world,&me) ;
   MPI_Comm_size(world,&nprocs ) ;
  // printf("MY PROC IS %d SIZE IS %d\n",me,nprocs  );
@@ -352,8 +356,8 @@ void FixPlumed::plumed_interface()
   int *my_idx,*my_backtable;
   rvec *my_pos,*my_force;
   int i,j;
-  my_atoms=( int *)calloc(nprocs,sizeof(int));
-  my_backtable=( int *)malloc(atom->natoms*sizeof(int));
+  my_atoms=( int *)calloc(nprocs,sizeof(int)); //number of atoms per processor
+  my_backtable=( int *)malloc(atom->natoms*sizeof(int));//goes from plumed index to lammps index
   my_pos=( rvec *)malloc(atom->natoms*sizeof(rvec));
   my_force=( rvec *)malloc(atom->natoms*sizeof(rvec));
   my_idx=( int *)calloc(atom->natoms,sizeof(int));
@@ -437,14 +441,28 @@ void FixPlumed::plumed_interface()
   // add the forces on each node 
   // scatter on the vector
   MPI_Scatterv(allforce,&my_atoms[me],&incr_pos[me],MPI_RVEC,my_force,my_atoms[me],MPI_RVEC,0,world); 
-  // now each vector should have its force: loop on them
+  // now each vector should have its force: loop on them  
+  
   for (i = 0; i < my_atoms[me] ; i++){ // loop over local atoms 
       // place it in the right vector:
       j=my_backtable[i];
       f[j][0]+=my_force[i][0];
       f[j][1]+=my_force[i][1];
       f[j][2]+=my_force[i][2];
+
+      //compute cross virial contributions
+      v[0] += my_force[i][0] * x[j][0];
+      v[1] += my_force[i][1] * x[j][1];
+      v[2] += my_force[i][2] * x[j][2];
+      v[3] += my_force[i][1] * x[j][0];
+      v[4] += my_force[i][2] * x[j][0];
+      v[5] += my_force[i][2] * x[j][1];
+	    
   }
+
+  //add into virial
+  v_tally(my_atoms[me], my_backtable, (double) my_atoms[me], v);
+
 
   // free all the vectors
   free(allpos); 
@@ -477,6 +495,7 @@ void FixPlumed::min_post_force(int vflag)
 {
   post_force(vflag);
 }
+
 EOF
 cat >./fix_plumed.h  << \EOF
 /*
