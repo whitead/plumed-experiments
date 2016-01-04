@@ -417,13 +417,14 @@ typedef struct s_t_eds {
   real*  means; //colvar means
   real*  ssd; //sum of squared deviation
   real*  max_coupling_range; //max coupling range
-  real*  max_coupling_rate; //max coupling rate
+  real*  max_coupling_grad; //max coupling gradient
   real*  set_coupling; //where we want the coupling to be
   real*  avg_coupling; //running average of coupling
   real*  current_coupling; //where the coupling is
   real*  coupling_rate; //how quickly to change the coupling
   real*  coupling_accum; //accumation in coupling
   real*  press_term; //Pressure contribution
+  real   press_scaling; //Pressure contribution scaling
   int*   cv_map;//map from CVs we're biasing and those we're not
   FILE*  output_file;//Output 
   char*  output_filename;//Output filename
