@@ -153,12 +153,13 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
       for(icv = 0;iw < nw; iw++) {
 	sscanf(word[iw], "%lf", &uno);
 	eds.max_coupling_range[icv] = uno;
-	//this is just an empirical guess. Bigger range, bigger grads. Longer updates, bigger changes
+	//this is just an empirical guess. Bigger range, bigger grads. Less frequent updates, igger changes
 	eds.max_coupling_grad[icv] = eds.max_coupling_range[icv] * eds.update_period / 100;
 	fprintf(fplog, 
-		"EDS: Will cap range of CV %d at %lf\n", 
+		"EDS: Will cap range of CV %d at %lf with a max gradient of %lf\n", 
 		icv+1,
-		eds.max_coupling_range[icv]);
+		eds.max_coupling_range[icv],
+		eds.max_coupling_grad[icv]);
 	icv++;
       }
     }     else if(!strcmp(word[iw - 1], "VIRIAL")) {
@@ -480,7 +481,6 @@ real PREFIX eds_engine(real* ss0, real* force,
       //multidimesional stochastic step
       if(eds->cv_number == 1 || rando(&eds->seed) < 1. / eds->cv_number) {
 	eds->coupling_accum[i] += step_size * step_size;
-	eds->current_coupling[i] = eds->set_coupling[i];
 	//no negative sign because it's in step_size
 	eds->set_coupling[i] += eds->max_coupling_range[i] / 
 	  sqrt(eds->coupling_accum[i]) * step_size;
