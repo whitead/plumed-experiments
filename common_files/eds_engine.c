@@ -275,7 +275,10 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
     if(cv_map == NULL)
       plumed_error("Must specify CV List in EDS as last argument [EDS 500 CV LIST 1 3]\n");
     cv_map = (int *) realloc(cv_map, sizeof(int) * i);
-    eds_init(i, update_period, uno, eds_seed, 0, cv_map, (const char*) filename, &eds);   
+    eds_init(i, update_period, uno, eds_seed, 0, cv_map, (const char*) filename, &eds);
+    if(update_period == 0) {
+      fprintf(fplog, "EDS: EDS will be fixed because no STRIDE was set \n");  
+    }
     if(restart){
       eds_read_restart(restart_filename, fplog, &eds);
       if(b_restart_constant) {
@@ -333,6 +336,11 @@ void PREFIX eds_read_restart(char* filename, FILE* fplog, t_eds* eds) {
     if(!success)
       plumed_error("Found incomplete line in EDS restart file");
   }
+
+  //now if we're outputting to the same file, open it for appending
+  if(!strcmp(eds->output_filename, filename))
+    eds->output_file = fopen(eds->output_filename, "a");
+
 
   fprintf(fplog, "DONE\n");
 
@@ -547,11 +555,11 @@ void PREFIX eds_dump(t_eds* eds) {
 
 void PREFIX eds_write(t_eds* eds, long long int step) {
 
-  if((eds->update_period > 0 && eds->update_calls % eds->update_period == 0) || 
+  if((eds->update_period == 0 &&  eds->update_calls == 0)|| (eds->update_period > 0 && eds->update_calls % eds->update_period == 0) || 
      (eds->update_period < 0 && eds->update_calls < fabs(eds->update_period))) {
 
     if(eds->output_file == NULL)
-      eds->output_file = fopen(eds->output_filename, "a");
+      eds->output_file = fopen(eds->output_filename, "w");
     
     int i;
     
