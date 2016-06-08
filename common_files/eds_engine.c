@@ -391,7 +391,6 @@ real PREFIX eds_engine(real* ss0, real* force,
     force[eds->cv_map[i]] -= eds->current_coupling[i] / eds->centers[i];
     bias_energy += eds->current_coupling[i] / eds->centers[i] * (ss0[eds->cv_map[i]] - eds->centers[i]);
     eds->press_sum += -eds->current_coupling[i] / eds->centers[i] * pseudo_virial[eds->cv_map[i]];
-    
     //are we just ramping up to a constant value?
     if(eds->update_period < 0) {
       if(eds->update_calls < fabs(eds->update_period))
@@ -467,7 +466,7 @@ real PREFIX eds_engine(real* ss0, real* force,
       eds->avg_coupling[i] += eds->current_coupling[i];
       
       //calulcate step size
-      temp = 2. * (eds->means[i] / eds->centers[i] - 1) * eds->ssd[i] / 
+      temp = 2. * (eds->means[i] - 1) * eds->ssd[i] / 
 	(eds->update_calls - 1);
       //this already has negative sign in it!
       step_size = temp / (eds->simtemp * boltz);
