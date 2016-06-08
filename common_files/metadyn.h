@@ -414,19 +414,24 @@ typedef struct s_t_eds {
   real*  means; //colvar means
   real*  ssd; //sum of squared deviation
   real*  max_coupling_range; //max coupling range
-  real*  max_coupling_rate; //max coupling rate
+  real*  max_coupling_grad; //max coupling gradient
   real*  set_coupling; //where we want the coupling to be
+  real*  avg_coupling; //running average of coupling
   real*  current_coupling; //where the coupling is
   real*  coupling_rate; //how quickly to change the coupling
   real*  coupling_accum; //accumation in coupling
+  real*  press_term; //Pressure contribution
+  real   press_scaling; //Pressure contribution scaling
   int*   cv_map;//map from CVs we're biasing and those we're not
   FILE*  output_file;//Output 
   char*  output_filename;//Output filename
+  real   press_sum; //Total pressure contribution
   real   simtemp;// simulation temperature
   int    seed;//random number seed
   int    cv_number;//number of CV's we're biasing
   int    update_period; //the stride/period, how often to update
   int    update_calls; //how often we've been called
+  long long int    avg_coupling_count; //The number of samples contributing to average coupling
   int    b_equilibration; //are we in equilibration phase?
   int    b_hard_coupling_range; //allow/disallow flexible coupling range
 } t_eds;
@@ -499,6 +504,7 @@ struct colvar_s
   real   simtemp;                       // simulation temperature
   real   wfactor;                       // welltemp factor = wtemp/simtemp
   //ADW>
+  real   pseudo_virial [nconst_max];				// Used for pressure corrections
   int    b_treat_independent  [nconst_max];          //treat the CV's as independent?
   int   b_scale_cn [nconst_max];
   real   cn_scale [nconst_max];
@@ -1288,10 +1294,11 @@ void eds_init(int cv_number, real update_period,
  void eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog);
  void eds_read_restart(char* restart_filename, FILE* fplog, t_eds* eds);
  void eds_free(t_eds* eds);
- real eds_engine(real* ss0, real* force, t_eds* eds, real boltz);
+ real eds_engine(real* ss0, real* force, t_eds* eds, real boltz, real* pseudo_virial);
  void eds_write(t_eds* eds, long long int step);
  void eds_dump(t_eds* eds);
  void dump_array(real* array, int length, FILE* file, const char* name);
+ void compute_pseudo_virial(struct mtd_data_s *mtd_data );
  //<ADW
  void apply_forces(struct mtd_data_s *mtd_data );
  void inversion_on_boundaries(struct mtd_data_s *mtd_data,int ncv);

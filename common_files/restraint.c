@@ -320,6 +320,9 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
     mtd_data->time=colvar.it*(mtd_data->dt)+mtd_data->time_offset;
     
     if(logical.commit) commit_analysis();     // committors analysis
+
+    //do pseudo-virial calculation
+    compute_pseudo_virial(mtd_data);
     
     if(couplingmatrix.is_on) calc_couplingmatrix(colvar.it);	
     
@@ -349,7 +352,7 @@ void PREFIX restraint(struct mtd_data_s *mtd_data)
     cvw.Vwall+=abmd_engine(colvar.ss0,cvw.fwall);                // Wall potential
 
     if(logical.eds) {//experiment directed simulations
-      cvw.Vwall+=eds_engine(colvar.ss0,cvw.fwall, &eds, mtd_data->boltz);
+      cvw.Vwall+=eds_engine(colvar.ss0,cvw.fwall, &eds, mtd_data->boltz, colvar.pseudo_virial);
       //write eds
       eds_write(&eds, mtd_data->istep);
     }
@@ -778,6 +781,23 @@ void PREFIX zero_forces(struct mtd_data_s *mtd_data ) {
     mtd_data->force[i][2] = 0.0;
   }  
 #endif
+
+}
+
+void PREFIX compute_pseudo_virial(struct mtd_data_s *mtd_data ) {
+
+  int i, iat, i_c;
+  for(i_c=0;i_c<colvar.nconst;i_c++){
+    colvar.pseudo_virial[i_c] = 0;
+    for(i=0;i<colvar.natoms[i_c];i++) {
+      iat = colvar.cvatoms[i_c][i];
+      colvar.pseudo_virial[i_c] += mtd_data->pos[iat][0] * colvar.myder[i_c][i][0];
+      colvar.pseudo_virial[i_c] += mtd_data->pos[iat][1] * colvar.myder[i_c][i][2];
+      colvar.pseudo_virial[i_c] += mtd_data->pos[iat][2] * colvar.myder[i_c][i][3];
+      
+    }
+  }
+
 
 }
 

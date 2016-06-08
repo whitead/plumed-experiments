@@ -54,17 +54,21 @@ void PREFIX eds_init(int cv_number, real update_period,
   eds->means = (real*) calloc(cv_number, sizeof(real));
   eds->ssd = (real*) calloc(cv_number, sizeof(real));
   eds->max_coupling_range = (real*) calloc(cv_number, sizeof(real));
-  eds->max_coupling_rate = (real*) calloc(cv_number, sizeof(real));
+  eds->max_coupling_grad = (real*) calloc(cv_number, sizeof(real));
   eds->set_coupling = (real*) calloc(cv_number, sizeof(real));
+  eds->avg_coupling = (real*) calloc(cv_number, sizeof(real));
   eds->current_coupling = (real*) calloc(cv_number, sizeof(real));
   eds->coupling_rate = (real*) calloc(cv_number, sizeof(real));
   eds->coupling_accum = (real*) calloc(cv_number, sizeof(real));
+  eds->press_term = (real*) calloc(cv_number, sizeof(real));
 
   eds->cv_number = cv_number;
   
   eds->cv_map = cv_map;  
   eds->simtemp = simtemp;  
   eds->seed = seed;
+
+  eds->press_scaling = 0.0;
 
   eds->output_filename = (char*) malloc(sizeof(char) * (strlen(filename) + 1));
   strcpy(eds->output_filename, filename);
@@ -76,12 +80,15 @@ void PREFIX eds_init(int cv_number, real update_period,
   else//just a ramp function
     eds->update_period = update_period;
   eds->update_calls = 0;
+  eds->avg_coupling_count = 1;
   eds->b_equilibration = 1;
   eds->b_hard_coupling_range = b_hard_coupling_range;
 
   int i;
-  for(i = 0; i < cv_number; i++)
+  for(i = 0; i < cv_number; i++) {
     eds->max_coupling_range[i] = 1;
+    eds->coupling_accum[i] = 1;
+  }
  
 }
 
@@ -98,6 +105,14 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
   //EDS STRIDE 500 SIMTEMP 300 SEED 4143 FILENAME FOO RESTART BAR CV LIST 1 2 4
   //EDS CV CENTERS 0.5 2.5 2.3
   //EDS CV RANGES 5 5 5
+  //EXAMLE for fixed from restart
+  //EDS SIMTEMP 300 RESTART BAR CV LIST 1 2 4
+  //EDS CENTERS 0.5 2.5 2.3
+  //EDS CONSTANTS RESTART
+
+  //Add virial correction - only works if pressure from plumed is accounted for in patch
+  //EDS VIRIAL 1.0
+  //The 1.0 is the scaling factor. 
 
   
 
@@ -105,11 +120,12 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
   int i, icv, iw, iat, j;
   real uno;
   char restart_filename[200];
+  int b_restart_constant = 0;
   int update_period = 0;
   int eds_seed = 0;
   char filename[200];
   int restart = 0;
-  int* cv_map = NULL;
+  int* cv_map = NULL;  
 
   if(!logical.eds) 
     fprintf(fplog, "Enabling experiment directed simulation\n");
@@ -137,28 +153,43 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
       for(icv = 0;iw < nw; iw++) {
 	sscanf(word[iw], "%lf", &uno);
 	eds.max_coupling_range[icv] = uno;
-	eds.max_coupling_rate[icv] = eds.max_coupling_range[icv] / (10 * eds.update_period);
+	//this is just an empirical guess. Bigger range, bigger grads. Less frequent updates, igger changes
+	eds.max_coupling_grad[icv] = eds.max_coupling_range[icv] * eds.update_period / 100;
 	fprintf(fplog, 
-		"EDS: Will cap range of CV %d at %lf\n", 
+		"EDS: Will cap range of CV %d at %lf with a max gradient of %lf\n", 
 		icv+1,
-		eds.max_coupling_range[icv]);
+		eds.max_coupling_range[icv],
+		eds.max_coupling_grad[icv]);
 	icv++;
       }
+    }     else if(!strcmp(word[iw - 1], "VIRIAL")) {
+
+      if(!sscanf(word[iw++], "%lf", &uno)) {
+	plumed_error("Could not read virial scaling value. Syntax: EDS VIRIAL 1.0\n");	
+      }
+      eds.press_scaling = uno;
+
     } else if(!strcmp(word[iw - 1], "CONSTANTS")) {
       if(eds.cv_number == 0) {
 	plumed_error("Must define CVs first for EDS with [CV LIST 1 2 3]");
       }
-      for(icv = 0;iw < nw; iw++) {
-	sscanf(word[iw], "%lf", &uno);
-	if(eds.update_period >= 0) //only if we aren't ramping it up
-	  eds.current_coupling[icv] = uno;
-	eds.set_coupling[icv] = uno;
-	fprintf(fplog, 
-		"EDS: Starting CV %d at %lf and set to %lf\n", 
-		icv+1,
-		eds.current_coupling[icv],
-		eds.set_coupling[icv]);
-	icv++;
+      if(!strcmp(word[iw], "RESTART")) {
+	b_restart_constant = 1;
+	iw++;
+      } else {
+	
+	for(icv = 0;iw < nw; iw++) {
+	  sscanf(word[iw], "%lf", &uno);
+	  if(eds.update_period >= 0) //only if we aren't ramping it up
+	    eds.current_coupling[icv] = uno;
+	  eds.set_coupling[icv] = uno;
+	  fprintf(fplog, 
+		  "EDS: Starting CV %d at %lf and set to %lf\n", 
+		  icv+1,
+		  eds.current_coupling[icv],
+		  eds.set_coupling[icv]);
+	  icv++;
+	}
       }
     } else {
       plumed_error("Syntax is EDS CV RANGES.... or EDS CV CENTERS....\n");
@@ -166,7 +197,7 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
   } else {
     
     if(eds.cv_number != 0) {
-      plumed_error("Syntax is EDS CV RANGES.... or EDS CV CENTERS....or EDS CV CONSTANTS\n");
+      plumed_error("Syntax is EDS CV RANGES.... or EDS CV CENTERS....or EDS CV CONSTANTS.... or EDS CV VIRIAL \n");
     }
 
     int last_iw;
@@ -244,9 +275,21 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
     if(cv_map == NULL)
       plumed_error("Must specify CV List in EDS as last argument [EDS 500 CV LIST 1 3]\n");
     cv_map = (int *) realloc(cv_map, sizeof(int) * i);
-    eds_init(i, update_period, uno, eds_seed, 0, cv_map, (const char*) filename, &eds);   
-    if(restart)
+    eds_init(i, update_period, uno, eds_seed, 0, cv_map, (const char*) filename, &eds);
+    if(update_period == 0) {
+      fprintf(fplog, "EDS: EDS will be fixed because no STRIDE was set \n");  
+    }
+    if(restart){
       eds_read_restart(restart_filename, fplog, &eds);
+      if(b_restart_constant) {
+	for(icv = 0; icv < eds.cv_number; i++) {
+	  if(eds.update_period >= 0) //only if we aren't ramping to we do this
+	    eds.current_coupling[icv] = eds.avg_coupling[icv] / eds.avg_coupling_count;
+	  eds.set_coupling[icv] = eds.avg_coupling[icv] / eds.avg_coupling_count;
+	}	  
+      }
+    }
+    
   }
 }
 
@@ -268,6 +311,14 @@ void PREFIX eds_read_restart(char* filename, FILE* fplog, t_eds* eds) {
   while(!feof(restart)) {
     //read and skip step
     success &= fscanf(restart, "%lld ", &temp);
+    //read in running average count
+    success &= fscanf(restart, "%lld", &(eds->avg_coupling_count));
+    //read in running average
+    for(i = 0; i < eds->cv_number; i++) {
+      success &= fscanf(restart, "%lf", &(eds->avg_coupling[i]));
+      eds->avg_coupling[i] *= eds->avg_coupling_count;
+    }
+
     for(i = 0; i < eds->cv_number; i++) {
       success &= fscanf(restart, "%lf", &(eds->current_coupling[i]));
       eds->set_coupling[i] = eds->current_coupling[i];
@@ -275,9 +326,21 @@ void PREFIX eds_read_restart(char* filename, FILE* fplog, t_eds* eds) {
     for(i = 0; i < eds->cv_number; i++) {
       success &= fscanf(restart, "%lf ", &(eds->coupling_accum[i]));    
     }
+    //read in pressure terms
+    for(i = 0; i < eds->cv_number; i++) {
+      success &= fscanf(restart, "%lf ", &(eds->press_term[i]));    
+    }
+    //read pressure sum
+    success &= fscanf(restart, "%lf", &(eds->press_sum));
+
     if(!success)
       plumed_error("Found incomplete line in EDS restart file");
   }
+
+  //now if we're outputting to the same file, open it for appending
+  if(!strcmp(eds->output_filename, filename))
+    eds->output_file = fopen(eds->output_filename, "a");
+
 
   fprintf(fplog, "DONE\n");
 
@@ -287,14 +350,16 @@ void PREFIX eds_free(t_eds* eds) {
 
   free(eds->centers);
   free(eds->means);
+  free(eds->press_term);
   free(eds->ssd);
-  free(eds->max_coupling_rate);
+  free(eds->max_coupling_grad);
   free(eds->max_coupling_range);
   free(eds->set_coupling);
   free(eds->current_coupling);
   free(eds->coupling_rate);
   free(eds->coupling_accum);
   free(eds->output_filename);
+
   
   fclose(eds->output_file);
   
@@ -305,32 +370,28 @@ void PREFIX eds_free(t_eds* eds) {
  * Run update of calculation and apply forces
  */
 real PREFIX eds_engine(real* ss0, real* force, 
-		       t_eds* eds, real boltz) {
+		       t_eds* eds, real boltz,
+		       real* pseudo_virial) {
 
   real bias_energy = 0.0;
-  int i;  
-
-
-  if(eds->update_calls == 0 && eds->update_period > 0) {
-    for(i = 0; i < eds->cv_number; i++) {
-      eds->max_coupling_rate[i] = eds->max_coupling_range[i] / eds->update_period;
-    }
-  }
-
-  eds->update_calls++;
-
+  int i;
   int b_finished_equil_flag = 1;
   real delta;
+
+  
+  eds->update_calls++;
 
   //zero forces
   for(i = 0; i < eds->cv_number; i++)
     force[eds->cv_map[i]] = 0;
 
   //apply forces for this setp and calculate energies
+  eds->press_sum = 0;
   for(i = 0; i < eds->cv_number; i++) {
     force[eds->cv_map[i]] -= eds->current_coupling[i] / eds->centers[i];
     bias_energy += eds->current_coupling[i] / eds->centers[i] * (ss0[eds->cv_map[i]] - eds->centers[i]);
-
+    eds->press_sum += -eds->current_coupling[i] / eds->centers[i] * pseudo_virial[eds->cv_map[i]];
+    
     //are we just ramping up to a constant value?
     if(eds->update_period < 0) {
       if(eds->update_calls < fabs(eds->update_period))
@@ -350,6 +411,14 @@ real PREFIX eds_engine(real* ss0, real* force,
       delta = ss0[eds->cv_map[i]] - eds->means[i];
       eds->means[i] += delta / eds->update_calls;
       eds->ssd[i] += delta * (ss0[eds->cv_map[i]] - eds->means[i]);
+
+      //for pressure
+          // just the coupling constant times the already computed partial derivatives times coordinate positions
+      delta =  (-eds->current_coupling[i] / eds->centers[i] * pseudo_virial[eds->cv_map[i]]) - eds->press_term[i];
+      //Commented out so press_sum is instantaneous
+      //eds->press_sum += -eds->current_coupling[i] / eds->centers[i] * pseudo_virial[eds->cv_map[i]];
+
+      eds->press_term[i] += delta / eds->update_calls;
     } else {
       //equilibrating
       //check if we've reached the setpoint
@@ -367,6 +436,7 @@ real PREFIX eds_engine(real* ss0, real* force,
     if(!eds->b_hard_coupling_range && fabs(eds->current_coupling[i]) > 
        eds->max_coupling_range[i]) {
       eds->max_coupling_range[i] *= 1.25;
+      eds->max_coupling_grad[i] *= 1.25;
     }        
   }
 
@@ -384,37 +454,59 @@ real PREFIX eds_engine(real* ss0, real* force,
     real step_size = 0;
     real temp;
 
+    eds->press_sum = 0;
     for(i = 0; i < eds->cv_number; i++) {
+      //compute average pseudo-pressure contribution
+      eds->press_sum += eds->press_term[i];
+    }
+
+
+    for(i = 0; i < eds->cv_number; i++) {
+
+      //Before modifying, record our new set-points in the running average
+      eds->avg_coupling[i] += eds->current_coupling[i];
+      
       //calulcate step size
       temp = 2. * (eds->means[i] / eds->centers[i] - 1) * eds->ssd[i] / 
 	(eds->update_calls - 1);
+      //this already has negative sign in it!
       step_size = temp / (eds->simtemp * boltz);
+
+       //now add virial penalty
+      //rhs is positive, but making it negative since step_size is negative
+      step_size += -2 *  eds->press_scaling * eds->press_term[i] / ( eds->current_coupling[i] == 0 ? 1.0 : eds->current_coupling[i]) * eds->press_sum;
+
+      //check if the step_size exceeds maximum possible gradient
+      step_size = copysign(fmin(fabs(step_size), eds->max_coupling_grad[i]), step_size);
 
       //reset means/vars
       eds->means[i] = 0;
       eds->ssd[i] = 0;
+ 
+      //reset viral terms
+      eds->press_term[i] = 0;
       
       //multidimesional stochastic step
       if(eds->cv_number == 1 || rando(&eds->seed) < 1. / eds->cv_number) {
 	eds->coupling_accum[i] += step_size * step_size;
-	eds->current_coupling[i] = eds->set_coupling[i];
+	//no negative sign because it's in step_size
 	eds->set_coupling[i] += eds->max_coupling_range[i] / 
 	  sqrt(eds->coupling_accum[i]) * step_size;
 	eds->coupling_rate[i] = (eds->set_coupling[i] - eds->current_coupling[i]) / eds->update_period;
-	eds->coupling_rate[i] = copysign(fmin(fabs(eds->coupling_rate[i]),
-					     eds->max_coupling_rate[i]), 
-					eds->coupling_rate[i]);
 	
       } else {
 	//we chose not to change the bias
 	eds->coupling_rate[i] = 0;
-      }      
+      }
     
-    } // closing colvar loop
+    } // closing colvar loop over each CV
 
     
     eds->update_calls = 0;
     eds->b_equilibration = 1; //back to equilibration now
+    eds->avg_coupling_count++; //since we added to average, add to avg_count
+
+    
   } //close if update if
 
   return bias_energy;
@@ -437,11 +529,13 @@ void PREFIX eds_dump(t_eds* eds) {
   dump_array(eds->means, eds->cv_number, eds->output_file, "means");
   dump_array(eds->ssd, eds->cv_number, eds->output_file, "ssd");
   dump_array(eds->max_coupling_range, eds->cv_number, eds->output_file, "max_coupling_range");
-  dump_array(eds->max_coupling_rate, eds->cv_number, eds->output_file, "max_coupling_rate");
+  dump_array(eds->max_coupling_grad, eds->cv_number, eds->output_file, "max_coupling_grad");
   dump_array(eds->set_coupling, eds->cv_number, eds->output_file, "set_coupling");
   dump_array(eds->current_coupling, eds->cv_number, eds->output_file, "current_coupling");
+  dump_array(eds->avg_coupling, eds->cv_number, eds->output_file, "avg_coupling");
   dump_array(eds->coupling_rate, eds->cv_number, eds->output_file, "coupling_rate");
   dump_array(eds->coupling_accum, eds->cv_number, eds->output_file, "coupling_accum");
+  dump_array(eds->press_term, eds->cv_number, eds->output_file, "press_term");
   
   int i;
   fprintf(eds->output_file, "%s: ", "cv_map");
@@ -454,13 +548,14 @@ void PREFIX eds_dump(t_eds* eds) {
   fprintf(eds->output_file, "cv_number: %d\n", eds->cv_number);
   fprintf(eds->output_file, "update_period: %d\n", eds->update_period);
   fprintf(eds->output_file, "update_calls: %d\n", eds->update_calls);
+  fprintf(eds->output_file, "avg_count: %d\n", eds->avg_coupling_count);
 
 }
 
 
 void PREFIX eds_write(t_eds* eds, long long int step) {
 
-  if((eds->update_period > 0 && eds->update_calls % eds->update_period == 0) || 
+  if((eds->update_period == 0 &&  eds->update_calls == 0)|| (eds->update_period > 0 && eds->update_calls % eds->update_period == 0) || 
      (eds->update_period < 0 && eds->update_calls < fabs(eds->update_period))) {
 
     if(eds->output_file == NULL)
@@ -471,11 +566,23 @@ void PREFIX eds_write(t_eds* eds, long long int step) {
     fprintf(eds->output_file, "%12ld ", step);
     
 #ifndef DUMP_EDS
-    
+
+    //print running average
+    fprintf(eds->output_file, "%12ld ", eds->avg_coupling_count);    
     for(i = 0; i < eds->cv_number; i++)
-      fprintf(eds->output_file, "%0.5f ", eds->current_coupling[i]);
+      fprintf(eds->output_file, "%E ", eds->avg_coupling[i] / eds->avg_coupling_count);
+    //print current
     for(i = 0; i < eds->cv_number; i++)
-      fprintf(eds->output_file, "%0.5f ", eds->coupling_accum[i]);
+      fprintf(eds->output_file, "%E ", eds->current_coupling[i]);
+    //print accumulation
+    for(i = 0; i < eds->cv_number; i++)
+      fprintf(eds->output_file, "%E ", eds->coupling_accum[i]);
+
+    //print pseudo-virials terms and their sum
+    for(i = 0; i < eds->cv_number; i++)
+      fprintf(eds->output_file, "%E ", eds->press_term[i]);
+    fprintf(eds->output_file, "%E ", eds->press_sum);
+
     
     //flush file
     fprintf(eds->output_file, "\n");
@@ -489,3 +596,4 @@ void PREFIX eds_write(t_eds* eds, long long int step) {
   }
   
 }
+
