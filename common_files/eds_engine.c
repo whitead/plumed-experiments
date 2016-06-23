@@ -285,7 +285,6 @@ void PREFIX eds_read(char **word, int nw, t_plumed_input *input, FILE *fplog) {
 	for(icv = 0; icv < eds.cv_number; i++) {
 	  if(eds.update_period >= 0) //only if we aren't ramping to we do this
 	    eds.current_coupling[icv] = eds.avg_coupling[icv] / eds.avg_coupling_count;
-	  eds.set_coupling[icv] = eds.avg_coupling[icv] / eds.avg_coupling_count;
 	}	  
       }
     }
