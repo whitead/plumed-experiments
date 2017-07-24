@@ -87,7 +87,7 @@ void PREFIX eds_init(int cv_number, real update_period,
   int i;
   for(i = 0; i < cv_number; i++) {
     eds->max_coupling_range[i] = 1;
-    eds->coupling_accum[i] = 1;
+    eds->coupling_accum[i] = 0;
   }
  
 }
